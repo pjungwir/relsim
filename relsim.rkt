@@ -17,7 +17,8 @@
          intersect
          except
          outer-join
-         print-rel)
+         print-rel
+         range-overlaps)
 
 ;; ---------------------------------------------------------------------------
 ;; Core data types
@@ -238,3 +239,14 @@
   (displayln sep out)
   (for ([row (in-list rows)]) (displayln (row-line row) out))
   (displayln sep out))
+
+;; ---------------------------------------------------------------------------
+;; Range helpers
+;; ---------------------------------------------------------------------------
+
+;; range-overlaps: do two half-open ranges share any point?
+;; Each range is a pair (s . e) with s < e. Matches SQL OVERLAPS semantics:
+;; ranges touching only at an endpoint (e.g. [1,3) and [3,5)) do not overlap.
+(define (range-overlaps p1 p2)
+  (and (< (car p1) (cdr p2))
+       (< (car p2) (cdr p1))))

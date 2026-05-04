@@ -309,6 +309,24 @@
                     "+---+----+\n"
                     "+---+----+\n")))))
 
+(define range-overlaps-tests
+  (test-suite
+   "range-overlaps"
+   (test-case "ranges that share interior points overlap"
+     (check-true  (range-overlaps '(1 . 5) '(3 . 7)))
+     (check-true  (range-overlaps '(3 . 7) '(1 . 5)))
+     (check-true  (range-overlaps '(1 . 10) '(3 . 5)))   ;; one contains the other
+     (check-true  (range-overlaps '(3 . 5) '(1 . 10))))
+   (test-case "ranges that only touch at an endpoint do not overlap"
+     (check-false (range-overlaps '(1 . 3) '(3 . 5)))
+     (check-false (range-overlaps '(3 . 5) '(1 . 3))))
+   (test-case "fully disjoint ranges do not overlap"
+     (check-false (range-overlaps '(1 . 2) '(5 . 9)))
+     (check-false (range-overlaps '(5 . 9) '(1 . 2))))
+   (test-case "works with non-integer comparable values"
+     (check-true  (range-overlaps '(1.5 . 3.5) '(2.0 . 4.0)))
+     (check-false (range-overlaps '(1.5 . 2.0) '(2.0 . 3.0))))))
+
 (define all-tests
   (test-suite
    "relsim"
@@ -324,7 +342,8 @@
    intersect-tests
    except-tests
    outer-join-tests
-   print-rel-tests))
+   print-rel-tests
+   range-overlaps-tests))
 
 (module+ main
   (exit (if (zero? (run-tests all-tests)) 0 1)))
