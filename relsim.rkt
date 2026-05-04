@@ -11,6 +11,7 @@
          project
          cartesian-product
          join
+         temporal-join
          semijoin
          antijoin
          union
@@ -98,6 +99,31 @@
                    [t2 (in-list (rel-tuples r2))]
                    #:when (pred t1 t2))
          (concat-tuples t1 t2))))
+
+;; Temporal join: like join, but additionally requires the named valid-time
+;; range attribute (a (s . e) pair) to overlap on both sides. The result desc
+;; is (left-fields ++ right-fields ++ valid-attr), i.e. an extra column with
+;; the same name is appended whose value is the intersection range.
+(define (temporal-join pred valid-attr r1 r2)
+  (define d1 (rel-desc r1))
+  (define d2 (rel-desc r2))
+  (define i1 (field-index d1 valid-attr))
+  (define i2 (field-index d2 valid-attr))
+  (define new-desc
+    (tuple-desc (append (tuple-desc-fields d1)
+                        (tuple-desc-fields d2)
+                        (list valid-attr))))
+  (define rows
+    (for*/list ([t1 (in-list (rel-tuples r1))]
+                [t2 (in-list (rel-tuples r2))]
+                #:when (pred t1 t2)
+                [ri (in-value (range-intersection
+                               (list-ref (tuple-values t1) i1)
+                               (list-ref (tuple-values t2) i2)))]
+                #:when ri)
+      (make-tuple-from-list
+       (append (tuple-values t1) (tuple-values t2) (list ri)))))
+  (rel new-desc rows))
 
 ;; Semijoin: rows of r1 that have at least one match in r2. Desc = r1's desc.
 (define (semijoin pred r1 r2)

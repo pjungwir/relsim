@@ -14,7 +14,8 @@ in the style of the relational algebra. SQL-flavored: nulls are allowed
   `(rel desc (list (tuple ...) ...))`.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
-`semijoin`, `antijoin`, `union`, `intersect`, `except`, `outer-join`.
+`temporal-join`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
+`outer-join`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
 duplicates are preserved, and counts combine accordingly (sum, min,
@@ -68,6 +69,11 @@ A few more examples:
 ;; Semijoin / antijoin: filter rows of the left rel by existence of a match.
 (semijoin pred employees depts)
 (antijoin pred employees depts)
+
+;; Temporal join: like join, but also requires the named valid-time range
+;; attribute (a pair (s . e)) to overlap on both sides. Result has an extra
+;; column with that name set to the intersection range.
+(temporal-join pred 'valid-at left right)
 
 ;; Full outer join. Use #:side 'left or #:side 'right for one-sided variants.
 (outer-join pred employees depts #:side 'full)

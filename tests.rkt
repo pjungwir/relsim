@@ -128,6 +128,47 @@
      (check-equal? (tuple-desc-fields (rel-desc r))
                    '(id name dept-id dept-id dept-name)))))
 
+(define temporal-join-tests
+  (test-suite
+   "temporal-join"
+   ;; Two relations sharing an `id` and a `valid-at` range.
+   (let* ([d1 (tuple-desc '(id name valid-at))]
+          [d2 (tuple-desc '(id role valid-at))]
+          [r1 (rel d1
+                   (list (tuple 1 "Alice" '(0 . 10))
+                         (tuple 2 "Bob"   '(5 . 15))))]
+          [r2 (rel d2
+                   (list (tuple 1 "eng"   '(3 . 7))
+                         (tuple 1 "lead"  '(10 . 12)) ;; touches but no overlap
+                         (tuple 2 "sales" '(0 . 8))))]
+          [eq-id (lambda (a b)
+                   (equal? (tuple-ref a d1 'id)
+                           (tuple-ref b d2 'id)))])
+     (test-case "matches rows with overlapping valid-times"
+       (define r (temporal-join eq-id 'valid-at r1 r2))
+       ;; Alice/eng overlap = (3 . 7); Bob/sales overlap = (5 . 8);
+       ;; Alice/lead touches at 10 -> dropped.
+       (check-equal? (length (rel-tuples r)) 2)
+       (check-equal? (map tuple-values (rel-tuples r))
+                     '((1 "Alice" (0 . 10) 1 "eng" (3 . 7) (3 . 7))
+                       (2 "Bob"   (5 . 15) 2 "sales" (0 . 8) (5 . 8)))))
+     (test-case "result desc appends valid-attr as an extra column"
+       (define r (temporal-join eq-id 'valid-at r1 r2))
+       (check-equal? (tuple-desc-fields (rel-desc r))
+                     '(id name valid-at id role valid-at valid-at)))
+     (test-case "predicate failure drops rows even if ranges overlap"
+       (define r (temporal-join (lambda (_ __) #f) 'valid-at r1 r2))
+       (check-equal? (rel-tuples r) '()))
+     (test-case "non-overlapping ranges drop rows even if pred holds"
+       (define r (temporal-join (lambda (_ __) #t) 'valid-at
+                                (rel d1 (list (tuple 1 "Alice" '(0 . 5))))
+                                (rel d2 (list (tuple 1 "eng"   '(5 . 9))))))
+       (check-equal? (rel-tuples r) '()))
+     (test-case "errors when valid-attr is missing from a side"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (temporal-join eq-id 'missing r1 r2)))))))
+
 (define semijoin-tests
   (test-suite
    "Semijoin"
@@ -363,6 +404,7 @@
    project-tests
    cp-tests
    join-tests
+   temporal-join-tests
    semijoin-tests
    antijoin-tests
    union-tests

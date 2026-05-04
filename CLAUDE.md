@@ -6,9 +6,10 @@ A Racket library implementing a small relational algebra. SQL semantics:
 ## Layout
 
 - `relsim.rkt` — the library. Defines `tuple`, `tuple-desc`, `rel`, the
-  operators (`select`, `project`, `cartesian-product`, `join`, `semijoin`,
-  `antijoin`, `union`, `intersect`, `except`, `outer-join`), and
-  `print-rel` for ASCII-table output.
+  operators (`select`, `project`, `cartesian-product`, `join`,
+  `temporal-join`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
+  `outer-join`), `print-rel` for ASCII-table output, and the range
+  helpers `range-overlaps` / `range-intersection`.
 - `tests.rkt` — RackUnit tests. Run with `racket tests.rkt` (exits 0/1) or
   `raco test tests.rkt`.
 - `README.md` — REPL examples.
@@ -32,6 +33,11 @@ A Racket library implementing a small relational algebra. SQL semantics:
   Result preserves the row order of the left input.
 - `semijoin` and `antijoin` keep the left desc and use `ormap` over the
   right rel's rows. They short-circuit on first match.
+- `temporal-join` requires a field present in both descs; its output desc
+  is `left ++ right ++ (list valid-attr)` — the same name appears on the
+  two input columns and on the appended intersection column. Lookups by
+  that name with `tuple-ref` will hit the leftmost occurrence; reach the
+  intersection via position if needed.
 - `outer-join` defaults to `#:side 'full`; `'left` and `'right` are also
   supported. Padding uses `'()` for every column on the missing side.
 - Nulls are `'()`. There's a `null?-rel` helper that just calls `null?` —
