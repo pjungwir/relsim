@@ -18,7 +18,8 @@
          except
          outer-join
          print-rel
-         range-overlaps)
+         range-overlaps
+         range-intersection)
 
 ;; ---------------------------------------------------------------------------
 ;; Core data types
@@ -250,3 +251,10 @@
 (define (range-overlaps p1 p2)
   (and (< (car p1) (cdr p2))
        (< (car p2) (cdr p1))))
+
+;; range-intersection: the half-open range common to both inputs, or #f.
+;; Matches `range-overlaps`: ranges that only touch at an endpoint return #f.
+(define (range-intersection p1 p2)
+  (define s (max (car p1) (car p2)))
+  (define e (min (cdr p1) (cdr p2)))
+  (and (< s e) (cons s e)))
