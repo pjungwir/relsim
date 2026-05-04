@@ -71,6 +71,9 @@ A few more examples:
 
 ;; Full outer join. Use #:side 'left or #:side 'right for one-sided variants.
 (outer-join pred employees depts #:side 'full)
+
+;; Pretty-print a Rel as an ASCII table (nulls show as NULL).
+(print-rel employees)
 ```
 
 Nulls are written as `'()`. Padding from an outer join produces `'()`

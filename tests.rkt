@@ -280,6 +280,35 @@
      (check-equal? (map tuple-values (rel-tuples r))
                    '((1 ()) (2 ()) (() 9))))))
 
+(define print-rel-tests
+  (test-suite
+   "print-rel"
+   (test-case "renders headers, padding, and NULL for '()"
+     (define small
+       (rel (tuple-desc '(id name))
+            (list (tuple 1 "Alice")
+                  (tuple 22 '()))))
+     (define out (open-output-string))
+     (print-rel small out)
+     (check-equal? (get-output-string out)
+                   (string-append
+                    "+----+-------+\n"
+                    "| id | name  |\n"
+                    "+----+-------+\n"
+                    "| 1  | Alice |\n"
+                    "| 22 | NULL  |\n"
+                    "+----+-------+\n")))
+   (test-case "empty rel still prints headers"
+     (define empty-r (rel (tuple-desc '(a bb)) '()))
+     (define out (open-output-string))
+     (print-rel empty-r out)
+     (check-equal? (get-output-string out)
+                   (string-append
+                    "+---+----+\n"
+                    "| a | bb |\n"
+                    "+---+----+\n"
+                    "+---+----+\n")))))
+
 (define all-tests
   (test-suite
    "relsim"
@@ -294,7 +323,8 @@
    union-tests
    intersect-tests
    except-tests
-   outer-join-tests))
+   outer-join-tests
+   print-rel-tests))
 
 (module+ main
   (exit (if (zero? (run-tests all-tests)) 0 1)))

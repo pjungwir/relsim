@@ -5,9 +5,10 @@ A Racket library implementing a small relational algebra. SQL semantics:
 
 ## Layout
 
-- `relsim.rkt` — the library. Defines `tuple`, `tuple-desc`, `rel`, and the
-  operators: `select`, `project`, `cartesian-product`, `join`, `semijoin`,
-  `antijoin`, `union`, `intersect`, `except`, `outer-join`.
+- `relsim.rkt` — the library. Defines `tuple`, `tuple-desc`, `rel`, the
+  operators (`select`, `project`, `cartesian-product`, `join`, `semijoin`,
+  `antijoin`, `union`, `intersect`, `except`, `outer-join`), and
+  `print-rel` for ASCII-table output.
 - `tests.rkt` — RackUnit tests. Run with `racket tests.rkt` (exits 0/1) or
   `raco test tests.rkt`.
 - `README.md` — REPL examples.

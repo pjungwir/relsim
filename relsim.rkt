@@ -16,7 +16,8 @@
          union
          intersect
          except
-         outer-join)
+         outer-join
+         print-rel)
 
 ;; ---------------------------------------------------------------------------
 ;; Core data types
@@ -199,3 +200,41 @@
                    side)]))
 
   (rel (concat-desc d1 d2) rows))
+
+;; ---------------------------------------------------------------------------
+;; Pretty-printing
+;; ---------------------------------------------------------------------------
+
+(define (cell->string v)
+  (cond [(null? v) "NULL"]
+        [(string? v) v]
+        [else (format "~a" v)]))
+
+;; Print r as an ASCII table with column headers from its TupleDesc.
+(define (print-rel r [out (current-output-port)])
+  (define headers (map symbol->string (tuple-desc-fields (rel-desc r))))
+  (define rows (map (lambda (t) (map cell->string (tuple-values t)))
+                    (rel-tuples r)))
+  (define widths
+    (for/list ([i (in-naturals)] [h (in-list headers)])
+      (apply max (string-length h)
+             (map (lambda (row) (string-length (list-ref row i))) rows))))
+  (define sep
+    (string-append "+"
+                   (string-join
+                    (for/list ([w (in-list widths)])
+                      (make-string (+ w 2) #\-))
+                    "+")
+                   "+"))
+  (define (row-line cells)
+    (string-append "| "
+                   (string-join
+                    (for/list ([c (in-list cells)] [w (in-list widths)])
+                      (~a c #:min-width w))
+                    " | ")
+                   " |"))
+  (displayln sep out)
+  (displayln (row-line headers) out)
+  (displayln sep out)
+  (for ([row (in-list rows)]) (displayln (row-line row) out))
+  (displayln sep out))
