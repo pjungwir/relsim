@@ -6,8 +6,8 @@ A Racket library implementing a small relational algebra. SQL semantics:
 ## Layout
 
 - `relsim.rkt` — the library. Defines `tuple`, `tuple-desc`, `rel`, and the
-  operators: `select`, `project`, `cartesian-product`, `join`, `union`,
-  `outer-join`.
+  operators: `select`, `project`, `cartesian-product`, `join`, `semijoin`,
+  `antijoin`, `union`, `intersect`, `except`, `outer-join`.
 - `tests.rkt` — RackUnit tests. Run with `racket tests.rkt` (exits 0/1) or
   `raco test tests.rkt`.
 - `README.md` — REPL examples.
@@ -24,7 +24,13 @@ A Racket library implementing a small relational algebra. SQL semantics:
   desc is the concatenation of the two input descs (duplicate field names
   are allowed and not renamed — callers disambiguate via position if
   needed).
-- `union` requires `equal?` TupleDescs and just appends row lists.
+- `union`, `intersect`, and `except` require `equal?` TupleDescs.
+  `union` is bag union (just `append`); `intersect` and `except` use
+  multiset semantics (SQL `INTERSECT ALL` / `EXCEPT ALL`) implemented via
+  a counts hashtable keyed on tuples (transparent structs hash by value).
+  Result preserves the row order of the left input.
+- `semijoin` and `antijoin` keep the left desc and use `ormap` over the
+  right rel's rows. They short-circuit on first match.
 - `outer-join` defaults to `#:side 'full`; `'left` and `'right` are also
   supported. Padding uses `'()` for every column on the missing side.
 - Nulls are `'()`. There's a `null?-rel` helper that just calls `null?` —

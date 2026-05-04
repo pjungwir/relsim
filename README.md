@@ -14,7 +14,11 @@ in the style of the relational algebra. SQL-flavored: nulls are allowed
   `(rel desc (list (tuple ...) ...))`.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
-`union`, `outer-join`.
+`semijoin`, `antijoin`, `union`, `intersect`, `except`, `outer-join`.
+
+`union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
+duplicates are preserved, and counts combine accordingly (sum, min,
+truncated difference). All three require both inputs to share a TupleDesc.
 
 ## Using it from a REPL
 
@@ -56,6 +60,14 @@ A few more examples:
 
 ;; Set-style union (TupleDescs must match; duplicates preserved).
 (union r1 r2)
+
+;; Multiset intersect / except (TupleDescs must match).
+(intersect r1 r2)
+(except r1 r2)
+
+;; Semijoin / antijoin: filter rows of the left rel by existence of a match.
+(semijoin pred employees depts)
+(antijoin pred employees depts)
 
 ;; Full outer join. Use #:side 'left or #:side 'right for one-sided variants.
 (outer-join pred employees depts #:side 'full)

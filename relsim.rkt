@@ -11,7 +11,11 @@
          project
          cartesian-product
          join
+         semijoin
+         antijoin
          union
+         intersect
+         except
          outer-join)
 
 ;; ---------------------------------------------------------------------------
@@ -92,6 +96,21 @@
                    #:when (pred t1 t2))
          (concat-tuples t1 t2))))
 
+;; Semijoin: rows of r1 that have at least one match in r2. Desc = r1's desc.
+(define (semijoin pred r1 r2)
+  (define t2s (rel-tuples r2))
+  (rel (rel-desc r1)
+       (filter (lambda (t1) (ormap (lambda (t2) (pred t1 t2)) t2s))
+               (rel-tuples r1))))
+
+;; Antijoin: rows of r1 that have no match in r2. Desc = r1's desc.
+(define (antijoin pred r1 r2)
+  (define t2s (rel-tuples r2))
+  (rel (rel-desc r1)
+       (filter (lambda (t1)
+                 (not (ormap (lambda (t2) (pred t1 t2)) t2s)))
+               (rel-tuples r1))))
+
 ;; Union: append two Rels with identical TupleDescs.
 (define (union r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
@@ -99,6 +118,42 @@
            (rel-desc r1) (rel-desc r2)))
   (rel (rel-desc r1)
        (append (rel-tuples r1) (rel-tuples r2))))
+
+;; Build a multiset of tuples (hash from tuple to count).
+(define (tuple-counts ts)
+  (define h (make-hash))
+  (for ([t (in-list ts)]) (hash-update! h t add1 0))
+  h)
+
+;; Intersect: multiset intersection (SQL INTERSECT ALL semantics).
+;; A tuple appearing m times in r1 and n times in r2 appears (min m n) times.
+(define (intersect r1 r2)
+  (unless (equal? (rel-desc r1) (rel-desc r2))
+    (error 'intersect "TupleDescs do not match: ~a vs ~a"
+           (rel-desc r1) (rel-desc r2)))
+  (define counts (tuple-counts (rel-tuples r2)))
+  (define kept
+    (for/fold ([acc '()]) ([t (in-list (rel-tuples r1))])
+      (define c (hash-ref counts t 0))
+      (cond
+        [(positive? c) (hash-set! counts t (sub1 c)) (cons t acc)]
+        [else acc])))
+  (rel (rel-desc r1) (reverse kept)))
+
+;; Except: multiset difference (SQL EXCEPT ALL semantics).
+;; A tuple appearing m times in r1 and n times in r2 appears (max (- m n) 0) times.
+(define (except r1 r2)
+  (unless (equal? (rel-desc r1) (rel-desc r2))
+    (error 'except "TupleDescs do not match: ~a vs ~a"
+           (rel-desc r1) (rel-desc r2)))
+  (define counts (tuple-counts (rel-tuples r2)))
+  (define kept
+    (for/fold ([acc '()]) ([t (in-list (rel-tuples r1))])
+      (define c (hash-ref counts t 0))
+      (cond
+        [(positive? c) (hash-set! counts t (sub1 c)) acc]
+        [else (cons t acc)])))
+  (rel (rel-desc r1) (reverse kept)))
 
 ;; OuterJoin: like join, but unmatched rows survive padded with nulls ('()).
 ;; #:side controls which side keeps unmatched rows: 'left, 'right, or 'full.
