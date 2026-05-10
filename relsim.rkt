@@ -12,6 +12,9 @@
          cartesian-product
          join
          temporal-join
+         temporal-cartesian-product
+         temporal-select
+         temporal-except
          semijoin
          antijoin
          union
@@ -20,7 +23,8 @@
          outer-join
          print-rel
          range-overlaps
-         range-intersection)
+         range-intersection
+         range-subtract)
 
 ;; ---------------------------------------------------------------------------
 ;; Core data types
@@ -125,6 +129,31 @@
        (append (tuple-values t1) (tuple-values t2) (list ri)))))
   (rel new-desc rows))
 
+;; Temporal cartesian product: every pair of tuples whose valid-time ranges
+;; overlap. Result desc matches temporal-join's: left ++ right ++ valid-attr,
+;; with the intersection range in the appended column.
+(define (temporal-cartesian-product valid-attr r1 r2)
+  (temporal-join (lambda (_ __) #t) valid-attr r1 r2))
+
+;; Temporal select: keep tuples for which (pred t) is true AND whose valid-time
+;; range overlaps query-range. The valid-attr field of each output tuple is
+;; replaced with the intersection of its original range and query-range. Desc
+;; is unchanged. Unlike temporal-join (which has two source ranges and appends
+;; an intersection column), there is only one source range here, so updating it
+;; in place keeps the desc clean.
+(define (temporal-select pred valid-attr query-range r)
+  (define d (rel-desc r))
+  (define i (field-index d valid-attr))
+  (define rows
+    (for*/list ([t (in-list (rel-tuples r))]
+                #:when (pred t)
+                [vs (in-value (tuple-values t))]
+                [ri (in-value (range-intersection (list-ref vs i) query-range))]
+                #:when ri)
+      (make-tuple-from-list
+       (append (take vs i) (cons ri (drop vs (add1 i)))))))
+  (rel d rows))
+
 ;; Semijoin: rows of r1 that have at least one match in r2. Desc = r1's desc.
 (define (semijoin pred r1 r2)
   (define t2s (rel-tuples r2))
@@ -183,6 +212,37 @@
         [(positive? c) (hash-set! counts t (sub1 c)) acc]
         [else (cons t acc)])))
   (rel (rel-desc r1) (reverse kept)))
+
+;; Temporal except: like except, but tuples are matched on every field other
+;; than valid-attr, and the valid-attr range from each matching r2 row is
+;; subtracted from r1's range. A single input row may produce 0, 1, or many
+;; output rows (range splits). Both rels must share a TupleDesc and that desc
+;; must contain valid-attr.
+(define (temporal-except valid-attr r1 r2)
+  (unless (equal? (rel-desc r1) (rel-desc r2))
+    (error 'temporal-except "TupleDescs do not match: ~a vs ~a"
+           (rel-desc r1) (rel-desc r2)))
+  (define d (rel-desc r1))
+  (define i (field-index d valid-attr))
+  (define (key-of vs) (append (take vs i) (drop vs (add1 i))))
+  ;; Group r2 ranges by non-valid-attr key.
+  (define minus-by-key (make-hash))
+  (for ([t (in-list (rel-tuples r2))])
+    (define vs (tuple-values t))
+    (hash-update! minus-by-key (key-of vs)
+                  (lambda (rs) (cons (list-ref vs i) rs))
+                  '()))
+  (define rows
+    (apply append
+           (for/list ([t (in-list (rel-tuples r1))])
+             (define vs (tuple-values t))
+             (define minus (hash-ref minus-by-key (key-of vs) '()))
+             (define survivors
+               (range-subtract-many (list-ref vs i) minus))
+             (for/list ([s (in-list survivors)])
+               (make-tuple-from-list
+                (append (take vs i) (cons s (drop vs (add1 i)))))))))
+  (rel d rows))
 
 ;; OuterJoin: like join, but unmatched rows survive padded with nulls ('()).
 ;; #:side controls which side keeps unmatched rows: 'left, 'right, or 'full.
@@ -284,3 +344,23 @@
   (define s (max (car p1) (car p2)))
   (define e (min (cdr p1) (cdr p2)))
   (and (< s e) (cons s e)))
+
+;; range-subtract: subtract b from a, returning a list of 0, 1, or 2 sub-ranges
+;; in left-to-right order. Endpoint-touching ranges produce no cut (consistent
+;; with range-overlaps).
+(define (range-subtract a b)
+  (cond
+    [(not (range-overlaps a b)) (list a)]
+    [else
+     (define a-s (car a)) (define a-e (cdr a))
+     (define b-s (car b)) (define b-e (cdr b))
+     (define left  (and (< a-s b-s) (cons a-s b-s)))
+     (define right (and (< b-e a-e) (cons b-e a-e)))
+     (filter values (list left right))]))
+
+;; Subtract every range in bs from a, in order. Survivors stay sorted and
+;; disjoint as long as a is a single range to start with.
+(define (range-subtract-many a bs)
+  (for/fold ([survivors (list a)]) ([b (in-list bs)])
+    (apply append
+           (for/list ([s (in-list survivors)]) (range-subtract s b)))))

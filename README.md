@@ -14,7 +14,8 @@ in the style of the relational algebra. SQL-flavored: nulls are allowed
   `(rel desc (list (tuple ...) ...))`.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
-`temporal-join`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
+`temporal-join`, `temporal-cartesian-product`, `temporal-select`,
+`temporal-except`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
 `outer-join`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
@@ -74,6 +75,18 @@ A few more examples:
 ;; attribute (a pair (s . e)) to overlap on both sides. Result has an extra
 ;; column with that name set to the intersection range.
 (temporal-join pred 'valid-at left right)
+
+;; Temporal cartesian product: every pair of tuples whose valid-time ranges
+;; overlap. Same desc shape as temporal-join.
+(temporal-cartesian-product 'valid-at left right)
+
+;; Temporal select: keep rows whose valid-time range overlaps a query range
+;; (and pred holds); the valid-attr column is replaced with the intersection.
+(temporal-select pred 'valid-at '(8 . 25) r)
+
+;; Temporal except: subtract overlapping ranges in r2 from rows in r1 that
+;; agree on every other field. Range splits can produce multiple output rows.
+(temporal-except 'valid-at r1 r2)
 
 ;; Full outer join. Use #:side 'left or #:side 'right for one-sided variants.
 (outer-join pred employees depts #:side 'full)

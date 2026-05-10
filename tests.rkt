@@ -169,6 +169,131 @@
                   (lambda ()
                     (temporal-join eq-id 'missing r1 r2)))))))
 
+(define temporal-cartesian-product-tests
+  (test-suite
+   "temporal-cartesian-product"
+   (let* ([d1 (tuple-desc '(id name valid-at))]
+          [d2 (tuple-desc '(role valid-at))]
+          [r1 (rel d1
+                   (list (tuple 1 "Alice" '(0 . 10))
+                         (tuple 2 "Bob"   '(20 . 30))))]
+          [r2 (rel d2
+                   (list (tuple "eng"   '(5 . 25))
+                         (tuple "lead"  '(50 . 60))))])
+     (test-case "pairs every overlapping (left,right) tuple"
+       (define r (temporal-cartesian-product 'valid-at r1 r2))
+       ;; Alice ∩ eng = [5,10); Bob ∩ eng = [20,25); 'lead' overlaps neither.
+       (check-equal? (map tuple-values (rel-tuples r))
+                     '((1 "Alice" (0 . 10) "eng" (5 . 25) (5 . 10))
+                       (2 "Bob"   (20 . 30) "eng" (5 . 25) (20 . 25)))))
+     (test-case "result desc appends valid-attr as an extra column"
+       (define r (temporal-cartesian-product 'valid-at r1 r2))
+       (check-equal? (tuple-desc-fields (rel-desc r))
+                     '(id name valid-at role valid-at valid-at)))
+     (test-case "empty rel on either side gives empty result"
+       (define empty-r (rel d1 '()))
+       (check-equal? (rel-tuples
+                      (temporal-cartesian-product 'valid-at empty-r r2))
+                     '())
+       (check-equal? (rel-tuples
+                      (temporal-cartesian-product 'valid-at r1 (rel d2 '())))
+                     '()))
+     (test-case "errors when valid-attr is missing from a side"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (temporal-cartesian-product 'missing r1 r2)))))))
+
+(define temporal-select-tests
+  (test-suite
+   "temporal-select"
+   (let* ([d (tuple-desc '(id name valid-at))]
+          [r (rel d
+                  (list (tuple 1 "Alice" '(0 . 10))
+                        (tuple 2 "Bob"   '(5 . 15))
+                        (tuple 3 "Carol" '(20 . 30))))])
+     (test-case "intersects valid range with query range; drops non-overlap"
+       (define out (temporal-select (lambda (_) #t) 'valid-at '(8 . 25) r))
+       ;; Alice [0,10) ∩ [8,25) = [8,10); Bob [5,15) ∩ [8,25) = [8,15);
+       ;; Carol [20,30) ∩ [8,25) = [20,25). All three rows survive.
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (8 . 10))
+                       (2 "Bob"   (8 . 15))
+                       (3 "Carol" (20 . 25)))))
+     (test-case "endpoint-only touch is not an overlap"
+       (define out (temporal-select (lambda (_) #t) 'valid-at '(10 . 20) r))
+       ;; Alice ends at 10 (touches but no overlap), Carol starts at 20 (same).
+       ;; Only Bob [5,15) ∩ [10,20) = [10,15) survives.
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((2 "Bob" (10 . 15)))))
+     (test-case "predicate filters before range intersection"
+       (define out (temporal-select
+                    (lambda (t) (equal? (tuple-ref t d 'name) "Alice"))
+                    'valid-at '(0 . 100) r))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 10)))))
+     (test-case "desc is unchanged"
+       (define out (temporal-select (lambda (_) #t) 'valid-at '(0 . 100) r))
+       (check-equal? (rel-desc out) d))
+     (test-case "errors when valid-attr is missing"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (temporal-select (lambda (_) #t) 'missing '(0 . 10) r)))))))
+
+(define temporal-except-tests
+  (test-suite
+   "temporal-except"
+   (let ([d (tuple-desc '(id name valid-at))])
+     (test-case "subtracts overlapping range, splitting into two pieces"
+       (define r1 (rel d (list (tuple 1 "Alice" '(0 . 20)))))
+       (define r2 (rel d (list (tuple 1 "Alice" '(5 . 10)))))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 5))
+                       (1 "Alice" (10 . 20)))))
+     (test-case "non-matching key in r2 is ignored"
+       (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10)))))
+       (define r2 (rel d (list (tuple 2 "Bob" '(0 . 10)))))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 10)))))
+     (test-case "endpoint-only touch leaves range intact"
+       (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10)))))
+       (define r2 (rel d (list (tuple 1 "Alice" '(10 . 20)))))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 10)))))
+     (test-case "fully-covered range produces zero output rows"
+       (define r1 (rel d (list (tuple 1 "Alice" '(5 . 8)))))
+       (define r2 (rel d (list (tuple 1 "Alice" '(0 . 20)))))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (rel-tuples out) '()))
+     (test-case "multiple subtractions accumulate"
+       (define r1 (rel d (list (tuple 1 "Alice" '(0 . 30)))))
+       (define r2 (rel d (list (tuple 1 "Alice" '(5 . 10))
+                               (tuple 1 "Alice" '(15 . 20)))))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 5))
+                       (1 "Alice" (10 . 15))
+                       (1 "Alice" (20 . 30)))))
+     (test-case "empty r2 is identity"
+       (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10))
+                               (tuple 2 "Bob"   '(5 . 15)))))
+       (define r2 (rel d '()))
+       (define out (temporal-except 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     (map tuple-values (rel-tuples r1))))
+     (test-case "errors on mismatched descs"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (temporal-except 'valid-at
+                                     (rel d '())
+                                     (rel (tuple-desc '(id valid-at)) '())))))
+     (test-case "errors when valid-attr is missing"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (temporal-except 'missing (rel d '()) (rel d '()))))))))
+
 (define semijoin-tests
   (test-suite
    "Semijoin"
@@ -405,6 +530,9 @@
    cp-tests
    join-tests
    temporal-join-tests
+   temporal-select-tests
+   temporal-except-tests
+   temporal-cartesian-product-tests
    semijoin-tests
    antijoin-tests
    union-tests
