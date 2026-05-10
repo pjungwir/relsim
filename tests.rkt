@@ -203,6 +203,32 @@
                   (lambda ()
                     (temporal-cartesian-product 'missing r1 r2)))))))
 
+(define temporal-cartesian-product/replace-tests
+  (test-suite
+   "temporal-cartesian-product/replace"
+   (let* ([d1 (tuple-desc '(id name valid-at))]
+          [d2 (tuple-desc '(role valid-at))]
+          [r1 (rel d1
+                   (list (tuple 1 "Alice" '(0 . 10))
+                         (tuple 2 "Bob"   '(20 . 30))))]
+          [r2 (rel d2
+                   (list (tuple "eng"  '(5 . 25))
+                         (tuple "lead" '(50 . 60))))])
+     (test-case "both input valid-attr columns hold the intersection"
+       (define r (temporal-cartesian-product/replace 'valid-at r1 r2))
+       (check-equal? (map tuple-values (rel-tuples r))
+                     '((1 "Alice" (5 . 10) "eng" (5 . 10))
+                       (2 "Bob"   (20 . 25) "eng" (20 . 25)))))
+     (test-case "result desc is left ++ right with no appended column"
+       (define r (temporal-cartesian-product/replace 'valid-at r1 r2))
+       (check-equal? (tuple-desc-fields (rel-desc r))
+                     '(id name valid-at role valid-at)))
+     (test-case "non-overlapping pairs are dropped"
+       (define a (rel d1 (list (tuple 1 "X" '(0 . 5)))))
+       (define b (rel d2 (list (tuple "y" '(10 . 20)))))
+       (define r (temporal-cartesian-product/replace 'valid-at a b))
+       (check-equal? (rel-tuples r) '())))))
+
 (define temporal-select-tests
   (test-suite
    "temporal-select"
@@ -533,6 +559,7 @@
    temporal-select-tests
    temporal-except-tests
    temporal-cartesian-product-tests
+   temporal-cartesian-product/replace-tests
    semijoin-tests
    antijoin-tests
    union-tests

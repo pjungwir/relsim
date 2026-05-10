@@ -13,6 +13,7 @@
          join
          temporal-join
          temporal-cartesian-product
+         temporal-cartesian-product/replace
          temporal-select
          temporal-except
          semijoin
@@ -134,6 +135,27 @@
 ;; with the intersection range in the appended column.
 (define (temporal-cartesian-product valid-attr r1 r2)
   (temporal-join (lambda (_ __) #t) valid-attr r1 r2))
+
+;; Like temporal-cartesian-product, but instead of appending the intersection
+;; as a third valid-attr column, both input rels' valid-attr columns are
+;; replaced with the intersection value. Result desc is just left ++ right
+;; (still with valid-attr appearing once on each side).
+(define (temporal-cartesian-product/replace valid-attr r1 r2)
+  (define d1 (rel-desc r1))
+  (define d2 (rel-desc r2))
+  (define i1 (field-index d1 valid-attr))
+  (define i2 (field-index d2 valid-attr))
+  (define rows
+    (for*/list ([t1 (in-list (rel-tuples r1))]
+                [t2 (in-list (rel-tuples r2))]
+                [vs1 (in-value (tuple-values t1))]
+                [vs2 (in-value (tuple-values t2))]
+                [ri (in-value (range-intersection (list-ref vs1 i1)
+                                                  (list-ref vs2 i2)))]
+                #:when ri)
+      (make-tuple-from-list
+       (append (list-set vs1 i1 ri) (list-set vs2 i2 ri)))))
+  (rel (concat-desc d1 d2) rows))
 
 ;; Temporal select: keep tuples for which (pred t) is true AND whose valid-time
 ;; range overlaps query-range. The valid-attr field of each output tuple is
