@@ -4,6 +4,27 @@ A small Racket library for building relations and evaluating expressions
 in the style of the relational algebra. SQL-flavored: nulls are allowed
 (represented as `'()`) and duplicate tuples are preserved.
 
+The real point of this is to experiment with *temporal* relational operators,
+and see if they obey the same algebraic identities as their traditional analogues.
+This matters for query transformations done by the planner.
+
+According to "TQuel Overview" by Richard Snodgrass in *Temporal Databases: Theory,
+Design, and Implementation* (1993), one identity that is not the same is that
+Cartesian product does not distribute over difference. In other words, this
+identity does not hold:
+
+```
+Q ⨯̂ (R −̂ S) ≡ (Q ⨯̂ R) −̂ (Q ⨯̂ S)
+```
+
+Since other joins can all be defined in terms of Cartesian product, I suspect
+many transformations built into databases like Postgres will not be valid.
+
+Is the problem because of adding a new `valid_at` column, to supplement the
+inputs' columns? I tried two kinds of Cartesian product, one adding a new
+`valid_at` column and another that replaces the inputs' columns. But you can
+find counterexamples for both cases.
+
 ## Concepts
 
 - **Tuple** — a struct holding a list of values. Construct variadically:
