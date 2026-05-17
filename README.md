@@ -133,3 +133,14 @@ via raco:
 ```
 $ raco test tests.rkt
 ```
+
+# Notes
+
+The reason cartesian product doesn't distribute over except is because of keeping the old valid-times and adding the new valid-time. That means that the *other* part of the tuples don't fully match (because there are more valid-times mixed in), so the except doesn't subtract anything. If cartesian product replaces *all* valid times, or removes all and adds its own, I think it would work.
+
+Alternately, if cartesian product kept the full original tuples and added a new valid-time, then temporal except should do that too. Then I think we might have a match. Also I need to make sure to use the *right* valid-time attribute for the operators.
+
+I think the /replace option is getting the closest, and it would be there 100% if it weren't keeping *both* columns. Better would be to drop those columns and then add on just one valid-at column at the end. Let's try that next.
+Btw that suggests that the real problem isn't adding the new column, but keeping the old columns. And that makes sense, because those columns are not part of the asserted history, but metadata about the assertion. So carrying them forward doesn't make sense.
+
+Indeed, the /replace-last option preserves the identity! (These names need some work though.)

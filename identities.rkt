@@ -48,9 +48,15 @@
                    (temporal-cartesian-product 'valid-at Q R)
                    (temporal-cartesian-product 'valid-at Q S)))
 
+(displayln "(temporal-except 'valid-at R S)")
+(print-rel (temporal-except 'valid-at R S))
 (displayln "LHS — (temporal-cartesian-product Q (temporal-except R S)):")
 (print-rel lhs)
 
+(displayln "(temporal-cartesian-product 'valid-at Q R)")
+(print-rel (temporal-cartesian-product 'valid-at Q R))
+(displayln "(temporal-cartesian-product 'valid-at Q S)")
+(print-rel (temporal-cartesian-product 'valid-at Q S))
 (displayln "RHS — (temporal-except (temporal-cartesian-product Q R)")
 (displayln "                       (temporal-cartesian-product Q S)):")
 (print-rel rhs)
@@ -80,9 +86,15 @@
                    (temporal-cartesian-product/replace 'valid-at Q R)
                    (temporal-cartesian-product/replace 'valid-at Q S)))
 
+(displayln "(temporal-except 'valid-at R S)")
+(print-rel (temporal-except 'valid-at R S))
 (displayln "LHS — (tcp/replace Q (temporal-except R S)):")
 (print-rel lhs2)
 
+(displayln "(temporal-cartesian-product/replace 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/replace 'valid-at Q R))
+(displayln "(temporal-cartesian-product/replace 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/replace 'valid-at Q S))
 (displayln "RHS — (temporal-except (tcp/replace Q R) (tcp/replace Q S)):")
 (print-rel rhs2)
 
@@ -92,3 +104,74 @@
 ;; they don't. The (Q × R) row sails through unchanged, while the LHS sees
 ;; R − S split into pieces before pairing with Q.
 (displayln (format "Equal? ~a" (equal? (rel-tuples lhs2) (rel-tuples rhs2))))
+
+(newline)
+(displayln "================================================================")
+(displayln "  Same identity, but with temporal-cartesian-product/rename")
+(displayln "================================================================")
+(newline)
+
+(define lhs3
+  (temporal-cartesian-product/rename 'valid-at
+                                      Q
+                                      (temporal-except 'valid-at R S)))
+
+(define rhs3
+  (temporal-except 'valid-at
+                   (temporal-cartesian-product/rename 'valid-at Q R)
+                   (temporal-cartesian-product/rename 'valid-at Q S)))
+
+(displayln "(temporal-except 'valid-at R S)")
+(print-rel (temporal-except 'valid-at R S))
+(displayln "LHS — (tcp/rename Q (temporal-except R S)):")
+(print-rel lhs3)
+
+(displayln "(temporal-cartesian-product/rename 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/rename 'valid-at Q R))
+(displayln "(temporal-cartesian-product/rename 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/rename 'valid-at Q S))
+(displayln "RHS — (temporal-except (tcp/rename Q R) (tcp/rename Q S)):")
+(print-rel rhs3)
+
+;; Q × R has second valid-at = [0,20); Q × S has second valid-at = [5,10).
+;; temporal-except matches on every column except the leftmost valid-at, so
+;; those second-valid-at values must agree for the subtraction to fire — and
+;; they don't. The (Q × R) row sails through unchanged, while the LHS sees
+;; R − S split into pieces before pairing with Q.
+(displayln (format "Equal? ~a" (equal? (rel-tuples lhs3) (rel-tuples rhs3))))
+
+(newline)
+(displayln "================================================================")
+(displayln "  Same identity, but with temporal-cartesian-product/replace-last")
+(displayln "================================================================")
+(newline)
+
+(define lhs4
+  (temporal-cartesian-product/replace-last 'valid-at
+                                      Q
+                                      (temporal-except 'valid-at R S)))
+
+(define rhs4
+  (temporal-except 'valid-at
+                   (temporal-cartesian-product/replace-last 'valid-at Q R)
+                   (temporal-cartesian-product/replace-last 'valid-at Q S)))
+
+(displayln "(temporal-except 'valid-at R S)")
+(print-rel (temporal-except 'valid-at R S))
+(displayln "LHS — (tcp/replace-last Q (temporal-except R S)):")
+(print-rel lhs4)
+
+(displayln "(temporal-cartesian-product/replace-last 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/replace-last 'valid-at Q R))
+(displayln "(temporal-cartesian-product/replace-last 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/replace-last 'valid-at Q S))
+(displayln "RHS — (temporal-except (tcp/replace-last Q R) (tcp/replace-last Q S)):")
+(print-rel rhs4)
+
+;; Q × R has second valid-at = [0,20); Q × S has second valid-at = [5,10).
+;; temporal-except matches on every column except the leftmost valid-at, so
+;; those second-valid-at values must agree for the subtraction to fire — and
+;; they don't. The (Q × R) row sails through unchanged, while the LHS sees
+;; R − S split into pieces before pairing with Q.
+(displayln (format "Equal? ~a" (equal? (rel-tuples lhs4) (rel-tuples rhs4))))
+

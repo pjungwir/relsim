@@ -12,8 +12,11 @@
          cartesian-product
          join
          temporal-join
+         temporal-join/rename
          temporal-cartesian-product
          temporal-cartesian-product/replace
+         temporal-cartesian-product/replace-last
+         temporal-cartesian-product/rename
          temporal-select
          temporal-except
          semijoin
@@ -56,6 +59,11 @@
 ;; Helpers
 ;; ---------------------------------------------------------------------------
 
+;; Get a list, except for a given index
+(define (list-remove lst i)
+  (append (take lst i) (drop lst (+ i 1))))
+
+;; Get the index of a field from a tuple-desc
 (define (field-index desc field)
   (or (index-of (tuple-desc-fields desc) field)
       (error 'field-index "no such field: ~a" field)))
@@ -130,6 +138,29 @@
        (append (tuple-values t1) (tuple-values t2) (list ri)))))
   (rel new-desc rows))
 
+(define (temporal-join/rename pred valid-attr r1 r2)
+  (define d1 (rel-desc r1))
+  (define d2 (rel-desc r2))
+  (define i1 (field-index d1 valid-attr))
+  (define i2 (field-index d2 valid-attr))
+  (define d1prime (tuple-desc (list-set (tuple-desc-fields d1) i1 (string->symbol (string-append "old-" (symbol->string valid-attr))))))
+  (define d2prime (tuple-desc (list-set (tuple-desc-fields d2) i2 (string->symbol (string-append "old-" (symbol->string valid-attr))))))
+  (define new-desc
+    (tuple-desc (append (tuple-desc-fields d1prime)
+                        (tuple-desc-fields d2prime)
+                        (list valid-attr))))
+  (define rows
+    (for*/list ([t1 (in-list (rel-tuples r1))]
+                [t2 (in-list (rel-tuples r2))]
+                #:when (pred t1 t2)
+                [ri (in-value (range-intersection
+                               (list-ref (tuple-values t1) i1)
+                               (list-ref (tuple-values t2) i2)))]
+                #:when ri)
+      (make-tuple-from-list
+       (append (tuple-values t1) (tuple-values t2) (list ri)))))
+  (rel new-desc rows))
+
 ;; Temporal cartesian product: every pair of tuples whose valid-time ranges
 ;; overlap. Result desc matches temporal-join's: left ++ right ++ valid-attr,
 ;; with the intersection range in the appended column.
@@ -156,6 +187,27 @@
       (make-tuple-from-list
        (append (list-set vs1 i1 ri) (list-set vs2 i2 ri)))))
   (rel (concat-desc d1 d2) rows))
+
+(define (temporal-cartesian-product/replace-last valid-attr r1 r2)
+  (define d1 (rel-desc r1))
+  (define d2 (rel-desc r2))
+  (define i1 (field-index d1 valid-attr))
+  (define i2 (field-index d2 valid-attr))
+  (define d1prime (tuple-desc (list-remove (tuple-desc-fields d1) i1)))
+  (define rows
+    (for*/list ([t1 (in-list (rel-tuples r1))]
+                [t2 (in-list (rel-tuples r2))]
+                [vs1 (in-value (tuple-values t1))]
+                [vs2 (in-value (tuple-values t2))]
+                [ri (in-value (range-intersection (list-ref vs1 i1)
+                                                  (list-ref vs2 i2)))]
+                #:when ri)
+      (make-tuple-from-list
+       (append (list-remove vs1 i1) (list-set vs2 i2 ri)))))
+  (rel (concat-desc d1prime d2) rows))
+
+(define (temporal-cartesian-product/rename valid-attr r1 r2)
+  (temporal-join/rename (lambda (_ __) #t) valid-attr r1 r2))
 
 ;; Temporal select: keep tuples for which (pred t) is true AND whose valid-time
 ;; range overlaps query-range. The valid-attr field of each output tuple is
