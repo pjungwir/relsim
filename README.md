@@ -25,6 +25,8 @@ inputs' columns? I tried two kinds of Cartesian product, one adding a new
 `valid_at` column and another that replaces the inputs' columns. But you can
 find counterexamples for both cases.
 
+After a lot of experimentation with tuple-timestamped operators, I double-checked Snodgrass's definition: it's just regular Cartesian product! But here his data model is significant: in his system, every *attribute* gets its own valid-time, not the overall tuple. (This is doing the same work that Date and Johnston get to in their sixth-normal form structure.) Moreover, each valid-time is not an interval, but a set of all valid-times (which lets him avoid duplicate tuples wrt the other attributes). So I think I need a separate tuple format and different operators.
+
 ## Concepts
 
 - **Tuple** — a struct holding a list of values. Construct variadically:

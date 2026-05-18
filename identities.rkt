@@ -11,7 +11,8 @@
 ;;
 ;; Run with: racket identities.rkt
 
-(require "relsim.rkt")
+(require "relsim.rkt"
+         "tquel.rkt")
 
 ;; All three rels share the same valid-time attribute name `valid-at`, since
 ;; the temporal operators take that name as an argument.
@@ -174,4 +175,53 @@
 ;; they don't. The (Q × R) row sails through unchanged, while the LHS sees
 ;; R − S split into pieces before pairing with Q.
 (displayln (format "Equal? ~a" (equal? (rel-tuples lhs4) (rel-tuples rhs4))))
+
+(newline)
+(displayln "================================================================")
+(displayln "  Q × (R − S) = (Q × R) − (Q × S)")
+(displayln "  Same identity, but with TQuel operators")
+(displayln "================================================================")
+(newline)
+
+;; In TQuel's data model each *attribute* carries its own valid-time,
+;; and there is no tuple-level valid-at column. In addition, the valid-time is
+;; not an interval, but a set of all valid-times for that tuple (thus avoiding
+;; duplicates wrt the non-valid-time attribute values). We can represent that
+;; as multiranges, which is nice because we can do the same in Postgres.
+;;
+;; Cartesian product is plain attribute concatenation; difference subtracts
+;; per-attribute valid-ats by matching the val tuple. The identity still
+;; fails here: on the LHS, Q's valid-time isn't touched (R-S removes nothing
+;; from Q), but on the RHS, Q × S asserts q-id = q1 during [0,20), so the
+;; per-attribute difference subtracts that whole window from Q × R's q-id
+;; column — even though the (q1, r1) *combination* in Q × S only spans the
+;; smaller [5,10) intersection.
+
+(define Q-s (rel->tquel Q 'valid-at))
+(define R-s (rel->tquel R 'valid-at))
+(define S-s (rel->tquel S 'valid-at))
+
+(define lhs-s
+  (temporal-cartesian-product/tquel
+   Q-s
+   (temporal-except/tquel R-s S-s)))
+
+(define rhs-s
+  (temporal-except/tquel
+   (temporal-cartesian-product/tquel Q-s R-s)
+   (temporal-cartesian-product/tquel Q-s S-s)))
+
+(displayln "(temporal-except/tquel R-s S-s)")
+(print-rel (temporal-except/tquel R-s S-s))
+(displayln "LHS — (× Q-s (- R-s S-s)):")
+(print-rel lhs-s)
+
+(displayln "(temporal-cartesian-product/tquel Q-s R-s)")
+(print-rel (temporal-cartesian-product/tquel Q-s R-s))
+(displayln "(temporal-cartesian-product/tquel Q-s S-s)")
+(print-rel (temporal-cartesian-product/tquel Q-s S-s))
+(displayln "RHS — (- (× Q-s R-s) (× Q-s S-s)):")
+(print-rel rhs-s)
+
+(displayln (format "Equal? ~a" (equal? lhs-s rhs-s)))
 
