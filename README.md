@@ -101,9 +101,9 @@ A few more examples:
 ;; overlap. Same desc shape as temporal-join.
 (temporal-cartesian-product 'valid-at left right)
 
-;; Temporal select: keep rows whose valid-time range overlaps a query range
-;; (and pred holds); the valid-attr column is replaced with the intersection.
-(temporal-select pred 'valid-at '(8 . 25) r)
+;; Temporal select: an alias for `select`. Filters rows by pred; valid-time
+;; columns are passed through unchanged.
+(temporal-select pred r)
 
 ;; Temporal except: subtract overlapping ranges in r2 from rows in r1 that
 ;; agree on every other field. Range splits can produce multiple output rows.

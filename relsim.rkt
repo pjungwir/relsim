@@ -209,24 +209,9 @@
 (define (temporal-cartesian-product/rename valid-attr r1 r2)
   (temporal-join/rename (lambda (_ __) #t) valid-attr r1 r2))
 
-;; Temporal select: keep tuples for which (pred t) is true AND whose valid-time
-;; range overlaps query-range. The valid-attr field of each output tuple is
-;; replaced with the intersection of its original range and query-range. Desc
-;; is unchanged. Unlike temporal-join (which has two source ranges and appends
-;; an intersection column), there is only one source range here, so updating it
-;; in place keeps the desc clean.
-(define (temporal-select pred valid-attr query-range r)
-  (define d (rel-desc r))
-  (define i (field-index d valid-attr))
-  (define rows
-    (for*/list ([t (in-list (rel-tuples r))]
-                #:when (pred t)
-                [vs (in-value (tuple-values t))]
-                [ri (in-value (range-intersection (list-ref vs i) query-range))]
-                #:when ri)
-      (make-tuple-from-list
-       (append (take vs i) (cons ri (drop vs (add1 i)))))))
-  (rel d rows))
+;; Temporal select: an alias for `select`. Kept for naming symmetry with the
+;; other temporal-* operators.
+(define temporal-select select)
 
 ;; Semijoin: rows of r1 that have at least one match in r2. Desc = r1's desc.
 (define (semijoin pred r1 r2)

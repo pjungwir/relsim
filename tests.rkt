@@ -237,33 +237,21 @@
                   (list (tuple 1 "Alice" '(0 . 10))
                         (tuple 2 "Bob"   '(5 . 15))
                         (tuple 3 "Carol" '(20 . 30))))])
-     (test-case "intersects valid range with query range; drops non-overlap"
-       (define out (temporal-select (lambda (_) #t) 'valid-at '(8 . 25) r))
-       ;; Alice [0,10) ∩ [8,25) = [8,10); Bob [5,15) ∩ [8,25) = [8,15);
-       ;; Carol [20,30) ∩ [8,25) = [20,25). All three rows survive.
-       (check-equal? (map tuple-values (rel-tuples out))
-                     '((1 "Alice" (8 . 10))
-                       (2 "Bob"   (8 . 15))
-                       (3 "Carol" (20 . 25)))))
-     (test-case "endpoint-only touch is not an overlap"
-       (define out (temporal-select (lambda (_) #t) 'valid-at '(10 . 20) r))
-       ;; Alice ends at 10 (touches but no overlap), Carol starts at 20 (same).
-       ;; Only Bob [5,15) ∩ [10,20) = [10,15) survives.
-       (check-equal? (map tuple-values (rel-tuples out))
-                     '((2 "Bob" (10 . 15)))))
-     (test-case "predicate filters before range intersection"
+     (test-case "is an alias for select — predicate filters rows"
        (define out (temporal-select
                     (lambda (t) (equal? (tuple-ref t d 'name) "Alice"))
-                    'valid-at '(0 . 100) r))
+                    r))
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 10)))))
      (test-case "desc is unchanged"
-       (define out (temporal-select (lambda (_) #t) 'valid-at '(0 . 100) r))
+       (define out (temporal-select (lambda (_) #t) r))
        (check-equal? (rel-desc out) d))
-     (test-case "errors when valid-attr is missing"
-       (check-exn exn:fail?
-                  (lambda ()
-                    (temporal-select (lambda (_) #t) 'missing '(0 . 10) r)))))))
+     (test-case "valid-at values are preserved unchanged"
+       (define out (temporal-select (lambda (_) #t) r))
+       (check-equal? (map tuple-values (rel-tuples out))
+                     '((1 "Alice" (0 . 10))
+                       (2 "Bob"   (5 . 15))
+                       (3 "Carol" (20 . 30))))))))
 
 (define temporal-except-tests
   (test-suite
