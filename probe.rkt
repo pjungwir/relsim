@@ -1,6 +1,6 @@
 #lang racket
 
-;; Stress-test the claim that with temporal-cartesian-product/replace-last,
+;; Stress-test the claim that with temporal-cartesian-product/drop-old,
 ;; the identity  Q × (R − S) = (Q × R) − (Q × S)  holds.
 
 (require "relsim.rkt")
@@ -9,14 +9,14 @@
 (define Rd (tuple-desc '(r-id valid-at)))
 
 (define (lhs Q R S)
-  (temporal-cartesian-product/replace-last
+  (temporal-cartesian-product/drop-old
    'valid-at Q (temporal-except 'valid-at R S)))
 
 (define (rhs Q R S)
   (temporal-except
    'valid-at
-   (temporal-cartesian-product/replace-last 'valid-at Q R)
-   (temporal-cartesian-product/replace-last 'valid-at Q S)))
+   (temporal-cartesian-product/drop-old 'valid-at Q R)
+   (temporal-cartesian-product/drop-old 'valid-at Q S)))
 
 (define (check label Q R S)
   (define L (lhs Q R S))

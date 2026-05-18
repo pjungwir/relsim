@@ -140,7 +140,7 @@ The reason cartesian product doesn't distribute over except is because of keepin
 
 Alternately, if cartesian product kept the full original tuples and added a new valid-time, then temporal except should do that too. Then I think we might have a match. Also I need to make sure to use the *right* valid-time attribute for the operators.
 
-I think the /replace option is getting the closest, and it would be there 100% if it weren't keeping *both* columns. Better would be to drop those columns and then add on just one valid-at column at the end. Let's try that next.
+I think the /overwrite-old option is getting the closest, and it would be there 100% if it weren't keeping *both* columns. Better would be to drop those columns and then add on just one valid-at column at the end. Let's try that next.
 Btw that suggests that the real problem isn't adding the new column, but keeping the old columns. And that makes sense, because those columns are not part of the asserted history, but metadata about the assertion. So carrying them forward doesn't make sense.
 
-Indeed, the /replace-last option preserves the identity! (These names need some work though.)
+Indeed, the /drop-old option preserves the identity!

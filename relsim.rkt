@@ -14,9 +14,9 @@
          temporal-join
          temporal-join/rename
          temporal-cartesian-product
-         temporal-cartesian-product/replace
-         temporal-cartesian-product/replace-last
-         temporal-cartesian-product/rename
+         temporal-cartesian-product/overwrite-old
+         temporal-cartesian-product/drop-old
+         temporal-cartesian-product/rename-old
          temporal-select
          temporal-except
          semijoin
@@ -171,7 +171,7 @@
 ;; as a third valid-attr column, both input rels' valid-attr columns are
 ;; replaced with the intersection value. Result desc is just left ++ right
 ;; (still with valid-attr appearing once on each side).
-(define (temporal-cartesian-product/replace valid-attr r1 r2)
+(define (temporal-cartesian-product/overwrite-old valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -188,7 +188,7 @@
        (append (list-set vs1 i1 ri) (list-set vs2 i2 ri)))))
   (rel (concat-desc d1 d2) rows))
 
-(define (temporal-cartesian-product/replace-last valid-attr r1 r2)
+(define (temporal-cartesian-product/drop-old valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -206,7 +206,7 @@
        (append (list-remove vs1 i1) (list-set vs2 i2 ri)))))
   (rel (concat-desc d1prime d2) rows))
 
-(define (temporal-cartesian-product/rename valid-attr r1 r2)
+(define (temporal-cartesian-product/rename-old valid-attr r1 r2)
   (temporal-join/rename (lambda (_ __) #t) valid-attr r1 r2))
 
 ;; Temporal select: an alias for `select`. Kept for naming symmetry with the

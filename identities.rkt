@@ -65,11 +65,11 @@
 
 (newline)
 (displayln "================================================================")
-(displayln "  Same identity, but with temporal-cartesian-product/replace")
+(displayln "  Same identity, but with temporal-cartesian-product/overwrite-old")
 (displayln "================================================================")
 (newline)
 
-;; The /replace variant doesn't append an extra valid-attr column — instead
+;; The /overwrite-old variant doesn't append an extra valid-attr column — instead
 ;; it overwrites both inputs' valid-attr columns with the intersection value.
 ;; That removes one redundant column from the desc, but the identity still
 ;; fails: the *second* valid-attr column (originally R's or S's) carries the
@@ -77,25 +77,25 @@
 ;; still don't match.
 
 (define lhs2
-  (temporal-cartesian-product/replace 'valid-at
+  (temporal-cartesian-product/overwrite-old 'valid-at
                                       Q
                                       (temporal-except 'valid-at R S)))
 
 (define rhs2
   (temporal-except 'valid-at
-                   (temporal-cartesian-product/replace 'valid-at Q R)
-                   (temporal-cartesian-product/replace 'valid-at Q S)))
+                   (temporal-cartesian-product/overwrite-old 'valid-at Q R)
+                   (temporal-cartesian-product/overwrite-old 'valid-at Q S)))
 
 (displayln "(temporal-except 'valid-at R S)")
 (print-rel (temporal-except 'valid-at R S))
-(displayln "LHS — (tcp/replace Q (temporal-except R S)):")
+(displayln "LHS — (tcp/overwrite-old Q (temporal-except R S)):")
 (print-rel lhs2)
 
-(displayln "(temporal-cartesian-product/replace 'valid-at Q R)")
-(print-rel (temporal-cartesian-product/replace 'valid-at Q R))
-(displayln "(temporal-cartesian-product/replace 'valid-at Q S)")
-(print-rel (temporal-cartesian-product/replace 'valid-at Q S))
-(displayln "RHS — (temporal-except (tcp/replace Q R) (tcp/replace Q S)):")
+(displayln "(temporal-cartesian-product/overwrite-old 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/overwrite-old 'valid-at Q R))
+(displayln "(temporal-cartesian-product/overwrite-old 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/overwrite-old 'valid-at Q S))
+(displayln "RHS — (temporal-except (tcp/overwrite-old Q R) (tcp/overwrite-old Q S)):")
 (print-rel rhs2)
 
 ;; Q × R has second valid-at = [0,20); Q × S has second valid-at = [5,10).
@@ -107,30 +107,30 @@
 
 (newline)
 (displayln "================================================================")
-(displayln "  Same identity, but with temporal-cartesian-product/rename")
+(displayln "  Same identity, but with temporal-cartesian-product/rename-old")
 (displayln "================================================================")
 (newline)
 
 (define lhs3
-  (temporal-cartesian-product/rename 'valid-at
+  (temporal-cartesian-product/rename-old 'valid-at
                                       Q
                                       (temporal-except 'valid-at R S)))
 
 (define rhs3
   (temporal-except 'valid-at
-                   (temporal-cartesian-product/rename 'valid-at Q R)
-                   (temporal-cartesian-product/rename 'valid-at Q S)))
+                   (temporal-cartesian-product/rename-old 'valid-at Q R)
+                   (temporal-cartesian-product/rename-old 'valid-at Q S)))
 
 (displayln "(temporal-except 'valid-at R S)")
 (print-rel (temporal-except 'valid-at R S))
-(displayln "LHS — (tcp/rename Q (temporal-except R S)):")
+(displayln "LHS — (tcp/rename-old Q (temporal-except R S)):")
 (print-rel lhs3)
 
-(displayln "(temporal-cartesian-product/rename 'valid-at Q R)")
-(print-rel (temporal-cartesian-product/rename 'valid-at Q R))
-(displayln "(temporal-cartesian-product/rename 'valid-at Q S)")
-(print-rel (temporal-cartesian-product/rename 'valid-at Q S))
-(displayln "RHS — (temporal-except (tcp/rename Q R) (tcp/rename Q S)):")
+(displayln "(temporal-cartesian-product/rename-old 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/rename-old 'valid-at Q R))
+(displayln "(temporal-cartesian-product/rename-old 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/rename-old 'valid-at Q S))
+(displayln "RHS — (temporal-except (tcp/rename-old Q R) (tcp/rename-old Q S)):")
 (print-rel rhs3)
 
 ;; Q × R has second valid-at = [0,20); Q × S has second valid-at = [5,10).
@@ -142,30 +142,30 @@
 
 (newline)
 (displayln "================================================================")
-(displayln "  Same identity, but with temporal-cartesian-product/replace-last")
+(displayln "  Same identity, but with temporal-cartesian-product/drop-old")
 (displayln "================================================================")
 (newline)
 
 (define lhs4
-  (temporal-cartesian-product/replace-last 'valid-at
+  (temporal-cartesian-product/drop-old 'valid-at
                                       Q
                                       (temporal-except 'valid-at R S)))
 
 (define rhs4
   (temporal-except 'valid-at
-                   (temporal-cartesian-product/replace-last 'valid-at Q R)
-                   (temporal-cartesian-product/replace-last 'valid-at Q S)))
+                   (temporal-cartesian-product/drop-old 'valid-at Q R)
+                   (temporal-cartesian-product/drop-old 'valid-at Q S)))
 
 (displayln "(temporal-except 'valid-at R S)")
 (print-rel (temporal-except 'valid-at R S))
-(displayln "LHS — (tcp/replace-last Q (temporal-except R S)):")
+(displayln "LHS — (tcp/drop-old Q (temporal-except R S)):")
 (print-rel lhs4)
 
-(displayln "(temporal-cartesian-product/replace-last 'valid-at Q R)")
-(print-rel (temporal-cartesian-product/replace-last 'valid-at Q R))
-(displayln "(temporal-cartesian-product/replace-last 'valid-at Q S)")
-(print-rel (temporal-cartesian-product/replace-last 'valid-at Q S))
-(displayln "RHS — (temporal-except (tcp/replace-last Q R) (tcp/replace-last Q S)):")
+(displayln "(temporal-cartesian-product/drop-old 'valid-at Q R)")
+(print-rel (temporal-cartesian-product/drop-old 'valid-at Q R))
+(displayln "(temporal-cartesian-product/drop-old 'valid-at Q S)")
+(print-rel (temporal-cartesian-product/drop-old 'valid-at Q S))
+(displayln "RHS — (temporal-except (tcp/drop-old Q R) (tcp/drop-old Q S)):")
 (print-rel rhs4)
 
 ;; Q × R has second valid-at = [0,20); Q × S has second valid-at = [5,10).
