@@ -2,6 +2,38 @@
 
 ;; Stress-test the claim that with temporal-cartesian-product/drop-old,
 ;; the identity  Q × (R − S) = (Q × R) − (Q × S)  holds.
+;;
+;; Why we expect it to hold (proof sketch). For a given output key (q, r),
+;; let
+;;   Q_q  = ⋃ { qt  : (q, qt)  ∈ Q }
+;;   S_r  = ⋃ { st  : (r, st)  ∈ S }
+;; In other words, Q_q is all the valid-times that q appeared in Q,
+;; and S_r is all the valid-times that r appeared in S.
+;;
+;; The surviving valid-time set contributed by an input (qt, rt) pair is:
+;;
+;;   LHS  Q × (R − S)        :  qt ∩ (rt − S_r)
+;;                          = (qt ∩ rt) − S_r
+;;     Intersect and different associate: If we start with qt, then keep what's
+;;     in rt and lose what's in S_r, it doesn't matter the order of operations.
+;;
+;;   RHS  (Q × R) − (Q × S)  :  (qt ∩ rt) − M
+;;     where M is the union, over the temporal-except key (q, r), of all
+;;     (qt' ∩ st) values produced by Q × S — i.e. M = Q_q ∩ S_r.
+;;
+;; These two sets are equal: t ∈ qt implies t ∈ Q_q, so for any t in qt ∩ rt,
+;; t ∈ S_r ⇔ t ∈ Q_q ∩ S_r. range-subtract-many returns a canonical sorted
+;; disjoint decomposition, so equal time-sets give equal piece counts —
+;; the bags line up too, not just the snapshot sets.
+;;
+;; Two properties of the operator pair make this work, and breaking either
+;; should reintroduce counterexamples:
+;;   (a) /drop-old replaces both inputs' valid-at columns with the single
+;;       intersection qt ∩ st, leaving no leftover source-time columns that
+;;       would mismatch in the outer temporal-except's key.
+;;   (b) temporal-except is set-style in time: every matching right-side
+;;       range is unioned into a single minus-set per key. That's what
+;;       makes M = Q_q ∩ S_r.
 
 (require "relsim.rkt")
 
