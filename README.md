@@ -25,7 +25,51 @@ inputs' columns? I tried two kinds of Cartesian product, one adding a new
 `valid_at` column and another that replaces the inputs' columns. But you can
 find counterexamples for both cases.
 
-After a lot of experimentation with tuple-timestamped operators, I double-checked Snodgrass's definition: it's just regular Cartesian product! But here his data model is significant: in his system, every *attribute* gets its own valid-time, not the overall tuple. (This is doing the same work that Date and Johnston get to in their sixth-normal form structure.) Moreover, each valid-time is not an interval, but a set of all valid-times (which lets him avoid duplicate tuples wrt the other attributes). So I think I need a separate tuple format and different operators.
+Actually, my `/drop-old` variant *does* hold. The issue isn't adding a valid-time column,
+but *keeping* the old valid-time columns. In other words, treating those as if they were regular attributes.
+Really they are qualifiers of the other attributes in the tuple.
+
+There are two ironies here:
+First, Date criticized TSQL2 and SQL:2011 for not representing application-time
+within the formal relational mathematics.
+`PERIOD`s are some weird thing that isn't an attribute.
+This means they compose poorly:
+you can't `SELECT` them, use them in an expression, output them from a `VIEW`,
+pass them to a function or return them, `GROUP BY` them, etc.
+Second, a significant part of Dignös's research is preserving the input valid-times
+(his "extend" operator in "Temporal Alignment").
+He showed this can be useful for scaling aggregate inputs when their rows get sliced up to align,
+filtering tables by valid-time length, or joining tables by valid-time length,
+e.g. giving deeper hotel reservation discounts the longer your stay.
+(Actually those last two use-cases don't require the input valid-time to be in the *result*,
+only the intermediate normalized tuples, so maybe they aren't applicable.)
+
+But semantically, dropping the input valid-times is correct:
+they weren't regular attributes.
+Intuitively it makes sense for the algebra to work out here and not there.
+So perhaps omitting them should be the default.
+If the user wants them, he can `SELECT` them before doing a join (or whatever).
+Also it makes sense that these really only mess things up for setops,
+which compare on *all attributes*.
+For common joins you wouldn't compare on these attributes.
+Well you would, but with overlaps.
+That seems sufficiently symmetrical and well-behaved that it probably doesn't cause problems.
+But I still need to explore how selection distributes over Cartesian product and joins. . . .
+
+After all this experimentation with tuple-timestamped operators, I double-checked Snodgrass's TQuel definition: it's just regular Cartesian product! My temporal Cartesian products included an implicit overlaps condition, and his doesn't. But here his data model is significant: in his system, every *attribute* gets its own valid-time, not the overall tuple. (This is doing the same work that Date and Johnston get to in their sixth-normal form structure.) Moreover, each valid-time is not an interval, but a set of all valid-times (which lets him avoid duplicate tuples wrt the other attributes). Actually we can represent such a set conveniently with multiranges.
+
+So I added a separate `tquel.rkt` file with a `tsattr` struct, holding a value plus a multirange of valid-times,
+and TQuel tuples just have a `tsattr` for each attribute.
+I included a function to convert a regular tuple to a TQuel tuple (just copy the valid-time onto each attribute),
+and another function to convert a TQuel tuple into one or more regular tuples.
+He also mentions "homogeneous tuples", which is a TQuel tuple whose attributes all have the same valid-time set.
+In that case it would convert to a single regular tuple.
+I haven't done anything here with that idea yet, but his result about reducibility only applies to homogeneous tuples.
+
+Then I made functions for each TQuel operator, and I put another counter-example in `identities.rkt`.
+Here the problem isn't that we're retaining the input valid-times.
+It's something else.
+I haven't put my finger on it yet.
 
 ## Concepts
 
