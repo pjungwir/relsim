@@ -81,8 +81,8 @@ I haven't put my finger on it yet.
   `(rel desc (list (tuple ...) ...))`.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
-`temporal-join`, `temporal-cartesian-product`, `temporal-select`,
-`temporal-except`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
+`range-join`, `range-cartesian-product`, `range-select`,
+`range-except`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
 `outer-join`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
@@ -138,22 +138,22 @@ A few more examples:
 (semijoin pred employees depts)
 (antijoin pred employees depts)
 
-;; Temporal join: like join, but also requires the named valid-time range
+;; Range join: like join, but also requires the named valid-time range
 ;; attribute (a pair (s . e)) to overlap on both sides. Result has an extra
 ;; column with that name set to the intersection range.
-(temporal-join pred 'valid-at left right)
+(range-join pred 'valid-at left right)
 
-;; Temporal cartesian product: every pair of tuples whose valid-time ranges
-;; overlap. Same desc shape as temporal-join.
-(temporal-cartesian-product 'valid-at left right)
+;; Range cartesian product: every pair of tuples whose valid-time ranges
+;; overlap. Same desc shape as range-join.
+(range-cartesian-product 'valid-at left right)
 
-;; Temporal select: an alias for `select`. Filters rows by pred; valid-time
+;; Range select: an alias for `select`. Filters rows by pred; valid-time
 ;; columns are passed through unchanged.
-(temporal-select pred r)
+(range-select pred r)
 
-;; Temporal except: subtract overlapping ranges in r2 from rows in r1 that
+;; Range except: subtract overlapping ranges in r2 from rows in r1 that
 ;; agree on every other field. Range splits can produce multiple output rows.
-(temporal-except 'valid-at r1 r2)
+(range-except 'valid-at r1 r2)
 
 ;; Full outer join. Use #:side 'left or #:side 'right for one-sided variants.
 (outer-join pred employees depts #:side 'full)

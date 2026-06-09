@@ -1,6 +1,6 @@
 #lang racket
 
-;; Stress-test the claim that with temporal-cartesian-product/drop-old,
+;; Stress-test the claim that with range-cartesian-product/drop-old,
 ;; the identity  Q × (R − S) = (Q × R) − (Q × S)  holds.
 ;;
 ;; Why we expect it to hold (proof sketch). For a given output key (q, r),
@@ -18,7 +18,7 @@
 ;;     in rt and lose what's in S_r, it doesn't matter the order of operations.
 ;;
 ;;   RHS  (Q × R) − (Q × S)  :  (qt ∩ rt) − M
-;;     where M is the union, over the temporal-except key (q, r), of all
+;;     where M is the union, over the range-except key (q, r), of all
 ;;     (qt' ∩ st) values produced by Q × S, i.e. M = Q_q ∩ S_r.
 ;;
 ;; These two sets are equal: t ∈ qt implies t ∈ Q_q, so for any t in qt ∩ rt,
@@ -30,8 +30,8 @@
 ;; should reintroduce counterexamples:
 ;;   (a) /drop-old replaces both inputs' valid-at columns with the single
 ;;       intersection qt ∩ st, leaving no leftover source-time columns that
-;;       would mismatch in the outer temporal-except's key.
-;;   (b) temporal-except is set-style in time: every matching right-side
+;;       would mismatch in the outer range-except's key.
+;;   (b) range-except is set-style in time: every matching right-side
 ;;       range is unioned into a single minus-set per key. That's what
 ;;       makes M = Q_q ∩ S_r.
 
@@ -41,14 +41,14 @@
 (define Rd (tuple-desc '(r-id valid-at)))
 
 (define (lhs Q R S)
-  (temporal-cartesian-product/drop-old
-   'valid-at Q (temporal-except 'valid-at R S)))
+  (range-cartesian-product/drop-old
+   'valid-at Q (range-except 'valid-at R S)))
 
 (define (rhs Q R S)
-  (temporal-except
+  (range-except
    'valid-at
-   (temporal-cartesian-product/drop-old 'valid-at Q R)
-   (temporal-cartesian-product/drop-old 'valid-at Q S)))
+   (range-cartesian-product/drop-old 'valid-at Q R)
+   (range-cartesian-product/drop-old 'valid-at Q S)))
 
 (define (check label Q R S)
   (define L (lhs Q R S))

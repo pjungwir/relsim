@@ -8,20 +8,20 @@
          "ranges.rkt"
          "relops.rkt")
 
-(provide temporal-join
-         temporal-join/rename
-         temporal-cartesian-product
-         temporal-cartesian-product/overwrite-old
-         temporal-cartesian-product/drop-old
-         temporal-cartesian-product/rename-old
-         temporal-select
-         temporal-except)
+(provide range-join
+         range-join/rename
+         range-cartesian-product
+         range-cartesian-product/overwrite-old
+         range-cartesian-product/drop-old
+         range-cartesian-product/rename-old
+         range-select
+         range-except)
 
-;; Temporal join: like join, but additionally requires the named valid-time
+;; Range join: like join, but additionally requires the named valid-time
 ;; range attribute (a (s . e) pair) to overlap on both sides. The result desc
 ;; is (left-fields ++ right-fields ++ valid-attr), i.e. an extra column with
 ;; the same name is appended whose value is the intersection range.
-(define (temporal-join pred valid-attr r1 r2)
+(define (range-join pred valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -42,7 +42,7 @@
        (append (tuple-values t1) (tuple-values t2) (list ri)))))
   (rel new-desc rows))
 
-(define (temporal-join/rename pred valid-attr r1 r2)
+(define (range-join/rename pred valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -65,17 +65,17 @@
        (append (tuple-values t1) (tuple-values t2) (list ri)))))
   (rel new-desc rows))
 
-;; Temporal cartesian product: every pair of tuples whose valid-time ranges
-;; overlap. Result desc matches temporal-join's: left ++ right ++ valid-attr,
+;; Range cartesian product: every pair of tuples whose valid-time ranges
+;; overlap. Result desc matches range-join's: left ++ right ++ valid-attr,
 ;; with the intersection range in the appended column.
-(define (temporal-cartesian-product valid-attr r1 r2)
-  (temporal-join (lambda (_ __) #t) valid-attr r1 r2))
+(define (range-cartesian-product valid-attr r1 r2)
+  (range-join (lambda (_ __) #t) valid-attr r1 r2))
 
-;; Like temporal-cartesian-product, but instead of appending the intersection
+;; Like range-cartesian-product, but instead of appending the intersection
 ;; as a third valid-attr column, both input rels' valid-attr columns are
 ;; replaced with the intersection value. Result desc is just left ++ right
 ;; (still with valid-attr appearing once on each side).
-(define (temporal-cartesian-product/overwrite-old valid-attr r1 r2)
+(define (range-cartesian-product/overwrite-old valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -92,7 +92,7 @@
        (append (list-set vs1 i1 ri) (list-set vs2 i2 ri)))))
   (rel (concat-desc d1 d2) rows))
 
-(define (temporal-cartesian-product/drop-old valid-attr r1 r2)
+(define (range-cartesian-product/drop-old valid-attr r1 r2)
   (define d1 (rel-desc r1))
   (define d2 (rel-desc r2))
   (define i1 (field-index d1 valid-attr))
@@ -110,21 +110,21 @@
        (append (list-remove vs1 i1) (list-set vs2 i2 ri)))))
   (rel (concat-desc d1prime d2) rows))
 
-(define (temporal-cartesian-product/rename-old valid-attr r1 r2)
-  (temporal-join/rename (lambda (_ __) #t) valid-attr r1 r2))
+(define (range-cartesian-product/rename-old valid-attr r1 r2)
+  (range-join/rename (lambda (_ __) #t) valid-attr r1 r2))
 
-;; Temporal select: an alias for `select`. Kept for naming symmetry with the
-;; other temporal-* operators.
-(define temporal-select select)
+;; Range select: an alias for `select`. Kept for naming symmetry with the
+;; other range-* operators.
+(define range-select select)
 
-;; Temporal except: like except, but tuples are matched on every field other
+;; Range except: like except, but tuples are matched on every field other
 ;; than valid-attr, and the valid-attr range from each matching r2 row is
 ;; subtracted from r1's range. A single input row may produce 0, 1, or many
 ;; output rows (range splits). Both rels must share a TupleDesc and that desc
 ;; must contain valid-attr.
-(define (temporal-except valid-attr r1 r2)
+(define (range-except valid-attr r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
-    (error 'temporal-except "TupleDescs do not match: ~a vs ~a"
+    (error 'range-except "TupleDescs do not match: ~a vs ~a"
            (rel-desc r1) (rel-desc r2)))
   (define d (rel-desc r1))
   (define i (field-index d valid-attr))

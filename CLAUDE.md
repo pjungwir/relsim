@@ -21,9 +21,9 @@ re-provides everything, so users just `(require "relsim.rkt")`.
 - `relops.rkt` — ordinary relational operators (`select`, `project`,
   `cartesian-product`, `join`, `semijoin`, `antijoin`, `union`, `intersect`,
   `except`, `outer-join`).
-- `range-relops.rkt` — range-based temporal operators (`temporal-join`,
-  `temporal-cartesian-product` and variants, `temporal-select`,
-  `temporal-except`).
+- `range-relops.rkt` — range-based temporal operators (`range-join`,
+  `range-cartesian-product` and variants, `range-select`,
+  `range-except`).
 - `tquel-relops.rkt` — TQuel operators, where each *attribute* carries its
   own valid-time multirange (`tsattr`, `rel->tquel`, `tquel->rel`,
   `temporal-*/tquel`). Requires `multiranges.rkt`.
@@ -58,7 +58,7 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   Result preserves the row order of the left input.
 - `semijoin` and `antijoin` keep the left desc and use `ormap` over the
   right rel's rows. They short-circuit on first match.
-- `temporal-join` requires a field present in both descs; its output desc
+- `range-join` requires a field present in both descs; its output desc
   is `left ++ right ++ (list valid-attr)` — the same name appears on the
   two input columns and on the appended intersection column. Lookups by
   that name with `tuple-ref` will hit the leftmost occurrence; reach the
