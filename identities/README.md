@@ -143,6 +143,44 @@ there is nothing for us to test against it.
 
 [dignos]: https://illuminatedcomputing.com/talks/pgconf2026-temporal-roadmap/index.html#/26
 
+## Do multiranges satisfy any identity that ranges don't?
+
+Assuming we always drop the old valid-times (so the product is the
+well-behaved `/drop-old` form): **no.** Every identity that holds for
+multiranges also holds for ranges. If anything the implication runs only one
+way, so ranges could satisfy *more* identities, not fewer.
+
+The reason is that **ranges are the "expanded" image of multiranges.** Define a
+map `φ` that takes a multirange relation and splits each tuple whose valid-time
+is `{[a,b), [c,d), ...}` into one gapless tuple per piece. On range-shaped
+inputs (every valid-time a single range), each operator commutes with `φ`:
+
+- `range-select = select = φ ∘ multirange-select` (select never touches the
+  valid-time).
+- `range-except(R, S) = φ(multirange-except(R, S))`: `multirange-except` carries
+  the leftover as one multirange, and `range-except` emits exactly that
+  multirange's canonical gapless pieces as separate rows.
+- `range-cartesian-product/drop-old(Q, X) = φ(multirange-…/drop-old(Q, X))`:
+  intersection distributes over the piece-decomposition, and `/drop-old`
+  collapses each pair to a single intersection, so no stray valid-at column
+  survives to be re-read.
+
+So `φ` is a homomorphism from the multirange algebra onto the range algebra.
+Apply it to both sides of any equation: if `LHS = RHS` for all multirange
+inputs, then `LHS = RHS` for all range inputs too. The multirange model differs
+only in *representation* (one tuple with a gappy valid-time vs several gapless
+tuples), not in its equational theory. The probes agree: nothing in
+`probe/equivalences.rkt` separated the two families.
+
+The interesting caveat is the *opposite* direction. `φ` is surjective but not
+injective: `{(q1, {[0,5), [10,15)})}` and `{(q1, {[0,5)}), (q1, {[10,15)})}`
+expand to the same range relation. So range-equality does **not** imply
+multirange-equality, which leaves room for identities that hold for **ranges
+but not multiranges**: ones sensitive to whether a gappy fact is stored as one
+tuple or several (anything that counts value-equivalent tuples). That is the
+duplicate-elimination / coalescing distinction the temporal-element literature
+cares about, and it is where a real separation would live.
+
 ## Takeaway
 
 Most classical rules survive temporalization: the selection rules, the set-op
