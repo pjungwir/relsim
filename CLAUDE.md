@@ -41,8 +41,12 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   `Q × (R − S) = (Q × R) − (Q × S)` does *not* survive temporalization:
   `range-relops.rkt` (the four range variants; `/drop-old` is the one that
   holds), `multirange-relops.rkt` (same four variants over multiranges,
-  same outcome), `tquel-relops.rkt` (TQuel operators), and `probe.rkt`
-  (proof sketch + fuzz stress-test of the `/drop-old` case).
+  same outcome), and `tquel-relops.rkt` (TQuel operators). `identities/probe/`
+  holds the deeper stress-tests: `harness.rkt` runs any LHS/RHS identity over
+  hand-picked cases plus random fuzz, and `ranges.rkt`, `multiranges.rkt`,
+  `tquel.rkt` use it to probe the `/drop-old` distribution (holds for
+  ranges/multiranges, fails for TQuel) and whether select distributes over
+  the product. `ranges.rkt` also carries the proof sketch.
 - `README.md` — REPL examples.
 
 ## Design notes

@@ -171,6 +171,6 @@
 
 ;; Unlike the other three variants, /drop-old makes the identity *hold*! The
 ;; two inputs' valid-at columns are collapsed to the single intersection, so
-;; there's no leftover source-time column to mismatch on. See probe.rkt for
-;; the proof sketch and fuzz stress-test.
+;; there's no leftover source-time column to mismatch on. See
+;; probe/ranges.rkt for the proof sketch and fuzz stress-test.
 (displayln (format "Equal? ~a" (equal? (rel-tuples lhs4) (rel-tuples rhs4))))
