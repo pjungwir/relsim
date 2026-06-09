@@ -39,24 +39,24 @@
 (define S-s (rel->tquel S 'valid-at))
 
 (define lhs-s
-  (temporal-cartesian-product/tquel
+  (tquel-cartesian-product
    Q-s
-   (temporal-except/tquel R-s S-s)))
+   (tquel-except R-s S-s)))
 
 (define rhs-s
-  (temporal-except/tquel
-   (temporal-cartesian-product/tquel Q-s R-s)
-   (temporal-cartesian-product/tquel Q-s S-s)))
+  (tquel-except
+   (tquel-cartesian-product Q-s R-s)
+   (tquel-cartesian-product Q-s S-s)))
 
-(displayln "(temporal-except/tquel R-s S-s)")
-(print-rel (temporal-except/tquel R-s S-s))
+(displayln "(tquel-except R-s S-s)")
+(print-rel (tquel-except R-s S-s))
 (displayln "LHS - (× Q-s (- R-s S-s)):")
 (print-rel lhs-s)
 
-(displayln "(temporal-cartesian-product/tquel Q-s R-s)")
-(print-rel (temporal-cartesian-product/tquel Q-s R-s))
-(displayln "(temporal-cartesian-product/tquel Q-s S-s)")
-(print-rel (temporal-cartesian-product/tquel Q-s S-s))
+(displayln "(tquel-cartesian-product Q-s R-s)")
+(print-rel (tquel-cartesian-product Q-s R-s))
+(displayln "(tquel-cartesian-product Q-s S-s)")
+(print-rel (tquel-cartesian-product Q-s S-s))
 (displayln "RHS - (- (× Q-s R-s) (× Q-s S-s)):")
 (print-rel rhs-s)
 

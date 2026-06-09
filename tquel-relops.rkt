@@ -13,11 +13,11 @@
  (struct-out tsattr)
  rel->tquel
  tquel->rel
- temporal-union/tquel
- temporal-except/tquel
- temporal-cartesian-product/tquel
- temporal-select/tquel
- temporal-project/tquel)
+ tquel-union
+ tquel-except
+ tquel-cartesian-product
+ tquel-select
+ tquel-project)
 
 (require "core.rkt"
          "multiranges.rkt"
@@ -114,19 +114,19 @@
 ;; its own valid-at. The "effective" valid-time of a result row only
 ;; emerges later (snapshot or tquel->rel) as the intersection of all
 ;; attribute valid-ats.
-(define temporal-cartesian-product/tquel cartesian-product)
+(define tquel-cartesian-product cartesian-product)
 
 ;; Select is independent of the temporal dimension: it just filters by the
 ;; predicate.
-(define temporal-select/tquel select)
+(define tquel-select select)
 
 ;; Project: keep only the named fields, then merge any tuples that share a
 ;; val-vector by per-attribute union of their valid-ats. Without the merge,
 ;; project could produce two output tuples with identical attribute values
 ;; but disjoint valid-times: exactly the duplicate TQuel's data model
 ;; avoids. A merged row is dropped only when *every* kept attribute has an
-;; empty valid-at (matching temporal-except/tquel's drop rule).
-(define (temporal-project/tquel fields r)
+;; empty valid-at (matching tquel-except's drop rule).
+(define (tquel-project fields r)
   (define desc (rel-desc r))
   (define indices (map (lambda (f) (field-index desc f)) fields))
   (define grouped
@@ -168,9 +168,9 @@
     (cons vals (hash-ref grouped vals))))
 
 ;; Bag union with merging: same val-vector -> per-attribute valid-at union.
-(define (temporal-union/tquel r1 r2)
+(define (tquel-union r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
-    (error 'temporal-union/tquel "TupleDescs do not match: ~a vs ~a"
+    (error 'tquel-union "TupleDescs do not match: ~a vs ~a"
            (rel-desc r1) (rel-desc r2)))
   (define rows
     (append (rel-tuples r1) (rel-tuples r2)))
@@ -195,9 +195,9 @@
 ;; equivalent to set-theoretic difference: it can over-subtract when two
 ;; attributes share a val but the tuples that contain them only co-occur
 ;; over a smaller window. See identities/ for the consequence.
-(define (temporal-except/tquel r1 r2)
+(define (tquel-except r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
-    (error 'temporal-except/tquel "TupleDescs do not match: ~a vs ~a"
+    (error 'tquel-except "TupleDescs do not match: ~a vs ~a"
            (rel-desc r1) (rel-desc r2)))
   (define minus-by-val (make-hash))
   (for ([t (in-list (rel-tuples r2))])

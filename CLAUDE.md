@@ -26,7 +26,7 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   `range-except`).
 - `tquel-relops.rkt` — TQuel operators, where each *attribute* carries its
   own valid-time multirange (`tsattr`, `rel->tquel`, `tquel->rel`,
-  `temporal-*/tquel`). Requires `multiranges.rkt`.
+  `tquel-*`). Requires `multiranges.rkt`.
 - `tests/` — RackUnit tests, one file per family (`core-tests.rkt`,
   `ranges-tests.rkt`, `multiranges-tests.rkt`, `relops-tests.rkt`,
   `range-relops-tests.rkt`, `tquel-relops-tests.rkt`). Each provides its
