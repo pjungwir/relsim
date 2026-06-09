@@ -58,7 +58,7 @@ But I still need to explore how selection distributes over Cartesian product and
 
 After all this experimentation with tuple-timestamped operators, I double-checked Snodgrass's TQuel definition: it's just regular Cartesian product! My temporal Cartesian products included an implicit overlaps condition, and his doesn't. But here his data model is significant: in his system, every *attribute* gets its own valid-time, not the overall tuple. (This is doing the same work that Date and Johnston get to in their sixth-normal form structure.) Moreover, each valid-time is not an interval, but a set of all valid-times (which lets him avoid duplicate tuples wrt the other attributes). Actually we can represent such a set conveniently with multiranges.
 
-So I added a separate `tquel.rkt` file with a `tsattr` struct, holding a value plus a multirange of valid-times,
+So I added a separate `tquel-relops.rkt` file with a `tsattr` struct, holding a value plus a multirange of valid-times,
 and TQuel tuples just have a `tsattr` for each attribute.
 I included a function to convert a regular tuple to a TQuel tuple (just copy the valid-time onto each attribute),
 and another function to convert a TQuel tuple into one or more regular tuples.
@@ -66,18 +66,18 @@ He also mentions "homogeneous tuples", which is a TQuel tuple whose attributes a
 In that case it would convert to a single regular tuple.
 I haven't done anything here with that idea yet, but his result about reducibility only applies to homogeneous tuples.
 
-Then I made functions for each TQuel operator, and I put another counter-example in `identities.rkt`.
+Then I made functions for each TQuel operator, and I put another counter-example in `identities/tquel-relops.rkt`.
 Here the problem isn't that we're retaining the input valid-times.
 It's something else.
 I haven't put my finger on it yet.
 
 ## Concepts
 
-- **Tuple** — a struct holding a list of values. Construct variadically:
+- **Tuple** - a struct holding a list of values. Construct variadically:
   `(tuple 1 "Alice" 10)`.
-- **TupleDesc** — names the fields of the tuples in a Rel:
+- **TupleDesc** - names the fields of the tuples in a Rel:
   `(tuple-desc '(id name dept-id))`.
-- **Rel** — a TupleDesc plus a list of Tuples:
+- **Rel** - a TupleDesc plus a list of Tuples:
   `(rel desc (list (tuple ...) ...))`.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
@@ -167,17 +167,18 @@ in the columns of the unmatched side.
 
 ## Running the tests
 
-From this directory:
+The tests live in the `tests/` folder, split by category. From this
+directory, run the whole suite with:
 
 ```
-$ racket tests.rkt
+$ racket tests/all.rkt
 ```
 
-The script exits 0 on success, 1 on any failure. You can also run them
-via raco:
+The script exits 0 on success, 1 on any failure. You can also run a single
+category (e.g. `racket tests/relops-tests.rkt`) or the whole folder via raco:
 
 ```
-$ raco test tests.rkt
+$ raco test tests/
 ```
 
 # Notes

@@ -5,13 +5,38 @@ A Racket library implementing a small relational algebra. SQL semantics:
 
 ## Layout
 
-- `relsim.rkt` — the library. Defines `tuple`, `tuple-desc`, `rel`, the
-  operators (`select`, `project`, `cartesian-product`, `join`,
-  `temporal-join`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
-  `outer-join`), `print-rel` for ASCII-table output, and the range
-  helpers `range-overlaps` / `range-intersection`.
-- `tests.rkt` — RackUnit tests. Run with `racket tests.rkt` (exits 0/1) or
-  `raco test tests.rkt`.
+The library is split across several files, each exporting one family of
+definitions. `relsim.rkt` is the umbrella — it requires the others and
+re-provides everything, so users just `(require "relsim.rkt")`.
+
+- `relsim.rkt` — top-level entry point; pulls everything together via
+  `all-from-out`. Holds no definitions of its own.
+- `core.rkt` — basic data types (`tuple`, `tuple-desc`, `rel`), the shared
+  private helpers (`field-index`, `list-remove`, `concat-desc`,
+  `concat-tuples`, `tuple-ref`), and `print-rel` for ASCII-table output.
+- `ranges.rkt` — range helpers (`range-overlaps`, `range-intersection`,
+  `range-subtract`, `range-subtract-many`). Pure interval math, no deps.
+- `multiranges.rkt` — multirange helpers (`multirange-canonical`,
+  `multirange-union`, `multirange-intersection`, etc.). Requires `ranges.rkt`.
+- `relops.rkt` — ordinary relational operators (`select`, `project`,
+  `cartesian-product`, `join`, `semijoin`, `antijoin`, `union`, `intersect`,
+  `except`, `outer-join`).
+- `range-relops.rkt` — range-based temporal operators (`temporal-join`,
+  `temporal-cartesian-product` and variants, `temporal-select`,
+  `temporal-except`).
+- `tquel-relops.rkt` — TQuel operators, where each *attribute* carries its
+  own valid-time multirange (`tsattr`, `rel->tquel`, `tquel->rel`,
+  `temporal-*/tquel`). Requires `multiranges.rkt`.
+- `tests/` — RackUnit tests, one file per family (`core-tests.rkt`,
+  `ranges-tests.rkt`, `multiranges-tests.rkt`, `relops-tests.rkt`,
+  `range-relops-tests.rkt`, `tquel-relops-tests.rkt`). Each provides its
+  suite and is runnable on its own; `tests/all.rkt` aggregates them. Run
+  with `racket tests/all.rkt` (exits 0/1) or `raco test tests/`.
+- `identities/` — runnable demonstrations that the classical identity
+  `Q × (R − S) = (Q × R) − (Q × S)` does *not* survive temporalization:
+  `range-relops.rkt` (the four range variants; `/drop-old` is the one that
+  holds), `tquel-relops.rkt` (TQuel operators), and `probe.rkt` (proof
+  sketch + fuzz stress-test of the `/drop-old` case).
 - `README.md` — REPL examples.
 
 ## Design notes
@@ -46,5 +71,11 @@ A Racket library implementing a small relational algebra. SQL semantics:
 ## Conventions
 
 - Keep the library dependency-free beyond `racket` and `rackunit`.
-- Prefer adding a test in `tests.rkt` for any new operator or semantic
-  change. The suite is small enough to read top-to-bottom.
+- Add new definitions to the file for their family (see Layout), and have
+  `relsim.rkt` re-provide the file if it's a new module. Within a module,
+  require only what it needs (`core.rkt`, `ranges.rkt`, etc.) rather than
+  the `relsim.rkt` umbrella, to avoid a require cycle.
+- Prefer adding a test in the matching `tests/*-tests.rkt` for any new
+  operator or semantic change, and register it in the file's suite (which
+  `tests/all.rkt` already aggregates). Each suite is small enough to read
+  top-to-bottom.

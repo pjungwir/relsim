@@ -19,11 +19,11 @@
 ;;
 ;;   RHS  (Q × R) − (Q × S)  :  (qt ∩ rt) − M
 ;;     where M is the union, over the temporal-except key (q, r), of all
-;;     (qt' ∩ st) values produced by Q × S — i.e. M = Q_q ∩ S_r.
+;;     (qt' ∩ st) values produced by Q × S, i.e. M = Q_q ∩ S_r.
 ;;
 ;; These two sets are equal: t ∈ qt implies t ∈ Q_q, so for any t in qt ∩ rt,
 ;; t ∈ S_r ⇔ t ∈ Q_q ∩ S_r. range-subtract-many returns a canonical sorted
-;; disjoint decomposition, so equal time-sets give equal piece counts —
+;; disjoint decomposition, so equal time-sets give equal piece counts -
 ;; the bags line up too, not just the snapshot sets.
 ;;
 ;; Two properties of the operator pair make this work, and breaking either
@@ -35,7 +35,7 @@
 ;;       range is unioned into a single minus-set per key. That's what
 ;;       makes M = Q_q ∩ S_r.
 
-(require "relsim.rkt")
+(require "../relsim.rkt")
 
 (define Qd (tuple-desc '(q-id valid-at)))
 (define Rd (tuple-desc '(r-id valid-at)))
@@ -106,7 +106,7 @@
        (rel Rd (list (tuple 'r1 '(0 . 20)) (tuple 'r1 '(10 . 30))))
        (rel Rd (list (tuple 'r1 '(15 . 25)))))
 
-;; ---- Case 8: Q trims S — Q is narrower than S ----
+;; ---- Case 8: Q trims S: Q is narrower than S ----
 (check "Q narrower than S"
        (rel Qd (list (tuple 'q1 '(0 . 10))))
        (rel Rd (list (tuple 'r1 '(0 . 20))))
@@ -164,7 +164,7 @@
        (rel Rd (list (tuple 'r1 '(0 . 30))))
        (rel Rd (list (tuple 'r1 '(5 . 25)))))
 
-;; ---- Case 16: Bag bombing — Q,R,S all dup the same row ----
+;; ---- Case 16: Bag bombing: Q,R,S all dup the same row ----
 (check "Q,R,S all duplicate"
        (rel Qd (list (tuple 'q1 '(0 . 30)) (tuple 'q1 '(0 . 30))))
        (rel Rd (list (tuple 'r1 '(0 . 30)) (tuple 'r1 '(0 . 30))))

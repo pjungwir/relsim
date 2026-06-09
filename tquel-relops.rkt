@@ -4,19 +4,13 @@
 ;;
 ;; Difference from the rest of relsim: in this model, each *attribute* (not
 ;; the tuple) carries its own valid-time, and a valid-time is a set of all
-;; timestamps (a multirange), not a single interval. See README §Notes.
+;; timestamps (a multirange), not a single interval. See the Notes section in README.
 ;;
-;; The wire types reuse relsim's `rel` and `tuple-desc` structs — a TQuel
-;; rel is just a rel whose tuple values are `tsattr` records.
+;; TQuel still uses the regular rel and tuple-desc structs: a TQuel rel is just
+;; a rel whose tuple values are `tsattr`s, holding both a `val` and a `valid-at`.
 
 (provide
  (struct-out tsattr)
- multirange-empty?
- multirange-canonical
- multirange-overlaps?
- multirange-union
- multirange-intersection
- multirange-subtract
  rel->tquel
  tquel->rel
  temporal-union/tquel
@@ -25,56 +19,12 @@
  temporal-select/tquel
  temporal-project/tquel)
 
-(require "relsim.rkt")
+(require "core.rkt"
+         "multiranges.rkt"
+         "relops.rkt")
 
 ;; ---------------------------------------------------------------------------
-;; Multiranges
-;; ---------------------------------------------------------------------------
-
-;; A multirange is a list of (s . e) half-open ranges. The canonical form is
-;; sorted by start and has no touching/overlapping members. All exported
-;; multirange operations return canonical results.
-
-(define (multirange-empty? mr) (null? mr))
-
-;; Sort by start, then sweep merging members that touch or overlap.
-(define (multirange-canonical mr)
-  (define sorted (sort mr < #:key car))
-  (let loop ([rs sorted] [acc '()])
-    (cond
-      [(null? rs) (reverse acc)]
-      [(null? acc) (loop (cdr rs) (list (car rs)))]
-      [else
-       (define top (car acc))
-       (define next (car rs))
-       (cond
-         [(<= (car next) (cdr top))
-          (define merged (cons (car top) (max (cdr top) (cdr next))))
-          (loop (cdr rs) (cons merged (cdr acc)))]
-         [else (loop (cdr rs) (cons next acc))])])))
-
-(define (multirange-union m1 m2)
-  (multirange-canonical (append m1 m2)))
-
-(define (multirange-intersection m1 m2)
-  (multirange-canonical
-   (for*/list ([r1 (in-list m1)]
-               [r2 (in-list m2)]
-               [ri (in-value (range-intersection r1 r2))]
-               #:when ri)
-     ri)))
-
-(define (multirange-subtract m1 m2)
-  (multirange-canonical
-   (for/fold ([acc m1]) ([r2 (in-list m2)])
-     (apply append
-            (for/list ([r1 (in-list acc)]) (range-subtract r1 r2))))))
-
-(define (multirange-overlaps? m1 m2)
-  (not (multirange-empty? (multirange-intersection m1 m2))))
-
-;; ---------------------------------------------------------------------------
-;; tsattr — a value paired with its valid-time multirange
+;; tsattr - a value paired with its valid-time multirange
 ;; ---------------------------------------------------------------------------
 
 (struct tsattr (val valid-at)
@@ -82,17 +32,6 @@
   #:methods gen:custom-write
   [(define (write-proc tsa port mode)
      (fprintf port "~a ~a" (tsattr-val tsa) (tsattr-valid-at tsa)))])
-
-;; ---------------------------------------------------------------------------
-;; Local helpers (mirrors of private ones in relsim.rkt)
-;; ---------------------------------------------------------------------------
-
-(define (list-remove lst i)
-  (append (take lst i) (drop lst (+ i 1))))
-
-(define (field-index desc field)
-  (or (index-of (tuple-desc-fields desc) field)
-      (error 'tquel "no such field: ~a" field)))
 
 ;; ---------------------------------------------------------------------------
 ;; Conversions
@@ -134,7 +73,7 @@
   (define vs (tuple-values t))
   (define vals (map tsattr-val vs))
   (define vts (map tsattr-valid-at vs))
-  ;; Collect every endpoint across every attribute's valid-at — these are
+  ;; Collect every endpoint across every attribute's valid-at. These are
   ;; the only places where the "currently valid" set of attributes can change.
   (define endpoints
     (sort (remove-duplicates
@@ -177,13 +116,14 @@
 ;; attribute valid-ats.
 (define temporal-cartesian-product/tquel cartesian-product)
 
-;; Select is independent of the temporal dimension — predicate over tuples.
+;; Select is independent of the temporal dimension: it just filters by the
+;; predicate.
 (define temporal-select/tquel select)
 
 ;; Project: keep only the named fields, then merge any tuples that share a
 ;; val-vector by per-attribute union of their valid-ats. Without the merge,
 ;; project could produce two output tuples with identical attribute values
-;; but disjoint valid-times — exactly the duplicate TQuel's data model
+;; but disjoint valid-times: exactly the duplicate TQuel's data model
 ;; avoids. A merged row is dropped only when *every* kept attribute has an
 ;; empty valid-at (matching temporal-except/tquel's drop rule).
 (define (temporal-project/tquel fields r)
@@ -227,7 +167,7 @@
   (for/list ([vals (in-list (reverse order))])
     (cons vals (hash-ref grouped vals))))
 
-;; Bag union with merging: same val-vector → per-attribute valid-at union.
+;; Bag union with merging: same val-vector -> per-attribute valid-at union.
 (define (temporal-union/tquel r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
     (error 'temporal-union/tquel "TupleDescs do not match: ~a vs ~a"
@@ -245,16 +185,16 @@
 
 ;; Difference: for each r1 row, find r2 rows with the matching val tuple and
 ;; subtract their valid-ats per-attribute (column-by-column). Drop the row
-;; only if *every* attribute's valid-at becomes empty — a row with some
+;; only if *every* attribute's valid-at becomes empty: a row with some
 ;; emptied attributes and some surviving ones still represents real
 ;; assertions about the surviving ones, and stays.
 ;;
-;; This is the literal per-attribute reading of TQuel's model — each
+;; This is the literal per-attribute reading of TQuel's model: each
 ;; (attribute, val, valid-at) triple is an independent assertion, and S
 ;; cancels R's triple wherever they match. It is intentionally NOT snapshot-
 ;; equivalent to set-theoretic difference: it can over-subtract when two
 ;; attributes share a val but the tuples that contain them only co-occur
-;; over a smaller window. See identities.rkt for the consequence.
+;; over a smaller window. See identities/ for the consequence.
 (define (temporal-except/tquel r1 r2)
   (unless (equal? (rel-desc r1) (rel-desc r2))
     (error 'temporal-except/tquel "TupleDescs do not match: ~a vs ~a"
