@@ -82,8 +82,9 @@ I haven't put my finger on it yet.
 
 Operators provided: `select`, `project`, `cartesian-product`, `join`,
 `range-join`, `range-cartesian-product`, `range-select`,
-`range-except`, `semijoin`, `antijoin`, `union`, `intersect`, `except`,
-`outer-join`.
+`range-except`, `multirange-join`, `multirange-cartesian-product`,
+`multirange-select`, `multirange-except`, `semijoin`, `antijoin`, `union`,
+`intersect`, `except`, `outer-join`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
 duplicates are preserved, and counts combine accordingly (sum, min,

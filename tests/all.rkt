@@ -13,6 +13,7 @@
          "multiranges-tests.rkt"
          "relops-tests.rkt"
          "range-relops-tests.rkt"
+         "multirange-relops-tests.rkt"
          "tquel-relops-tests.rkt")
 
 (define all-tests
@@ -23,6 +24,7 @@
    multiranges-suite
    relops-suite
    range-relops-suite
+   multirange-relops-suite
    tquel-relops-suite))
 
 (module+ main

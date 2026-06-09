@@ -10,15 +10,17 @@
 ;;   core.rkt          - tuple/rel data types, helpers, print-rel
 ;;   ranges.rkt        - range helpers
 ;;   multiranges.rkt   - multirange helpers
-;;   relops.rkt        - ordinary relational operators
-;;   range-relops.rkt  - range-based temporal operators
-;;   tquel-relops.rkt  - TQuel (per-attribute, multirange) operators
+;;   relops.rkt             - ordinary relational operators
+;;   range-relops.rkt       - range-based temporal operators
+;;   multirange-relops.rkt  - multirange-based temporal operators
+;;   tquel-relops.rkt       - TQuel (per-attribute, multirange) operators
 
 (require "core.rkt"
          "ranges.rkt"
          "multiranges.rkt"
          "relops.rkt"
          "range-relops.rkt"
+         "multirange-relops.rkt"
          "tquel-relops.rkt")
 
 (provide (all-from-out "core.rkt")
@@ -26,4 +28,5 @@
          (all-from-out "multiranges.rkt")
          (all-from-out "relops.rkt")
          (all-from-out "range-relops.rkt")
+         (all-from-out "multirange-relops.rkt")
          (all-from-out "tquel-relops.rkt"))

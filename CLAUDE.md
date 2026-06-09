@@ -24,19 +24,25 @@ re-provides everything, so users just `(require "relsim.rkt")`.
 - `range-relops.rkt` — range-based temporal operators (`range-join`,
   `range-cartesian-product` and variants, `range-select`,
   `range-except`).
+- `multirange-relops.rkt` — multirange-based temporal operators
+  (`multirange-join`, `multirange-cartesian-product` and variants,
+  `multirange-select`, `multirange-except`); mirrors `range-relops.rkt` but
+  the valid-attr is a multirange. Requires `multiranges.rkt`.
 - `tquel-relops.rkt` — TQuel operators, where each *attribute* carries its
   own valid-time multirange (`tsattr`, `rel->tquel`, `tquel->rel`,
   `tquel-*`). Requires `multiranges.rkt`.
 - `tests/` — RackUnit tests, one file per family (`core-tests.rkt`,
   `ranges-tests.rkt`, `multiranges-tests.rkt`, `relops-tests.rkt`,
-  `range-relops-tests.rkt`, `tquel-relops-tests.rkt`). Each provides its
-  suite and is runnable on its own; `tests/all.rkt` aggregates them. Run
-  with `racket tests/all.rkt` (exits 0/1) or `raco test tests/`.
+  `range-relops-tests.rkt`, `multirange-relops-tests.rkt`,
+  `tquel-relops-tests.rkt`). Each provides its suite and is runnable on its
+  own; `tests/all.rkt` aggregates them. Run with `racket tests/all.rkt`
+  (exits 0/1) or `raco test tests/`.
 - `identities/` — runnable demonstrations that the classical identity
   `Q × (R − S) = (Q × R) − (Q × S)` does *not* survive temporalization:
   `range-relops.rkt` (the four range variants; `/drop-old` is the one that
-  holds), `tquel-relops.rkt` (TQuel operators), and `probe.rkt` (proof
-  sketch + fuzz stress-test of the `/drop-old` case).
+  holds), `multirange-relops.rkt` (same four variants over multiranges,
+  same outcome), `tquel-relops.rkt` (TQuel operators), and `probe.rkt`
+  (proof sketch + fuzz stress-test of the `/drop-old` case).
 - `README.md` — REPL examples.
 
 ## Design notes
