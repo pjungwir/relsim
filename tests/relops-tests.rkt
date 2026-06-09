@@ -40,10 +40,10 @@
                        employees))
      (check-equal? (length (rel-tuples r)) 2)
      (check-equal? (rel-desc r) employees-desc))
-   (test-case "select with always-false yields empty rel"
+   (test-case "yields an empty rel when the predicate is always false"
      (define r (select (lambda (_) #f) employees))
      (check-equal? (rel-tuples r) '()))
-   (test-case "select preserves duplicates"
+   (test-case "preserves duplicate rows"
      (define dup (rel (tuple-desc '(x))
                       (list (tuple 1) (tuple 1) (tuple 2))))
      (define r (select (lambda (t) (equal? (tuple-ref t (rel-desc dup) 'x) 1))
@@ -68,14 +68,14 @@
 (define cp-tests
   (test-suite
    "CartesianProduct"
-   (test-case "row count is product of inputs"
+   (test-case "produces a row count equal to the product of the inputs"
      (define r (cartesian-product employees depts))
      (check-equal? (length (rel-tuples r)) (* 4 3)))
-   (test-case "desc concatenates fields"
+   (test-case "concatenates the input fields in its desc"
      (define r (cartesian-product employees depts))
      (check-equal? (tuple-desc-fields (rel-desc r))
                    '(id name dept-id dept-id dept-name)))
-   (test-case "empty rel on either side gives empty product"
+   (test-case "gives an empty product when either side is empty"
      (define empty-r (rel employees-desc '()))
      (check-equal? (rel-tuples (cartesian-product empty-r depts)) '())
      (check-equal? (rel-tuples (cartesian-product depts empty-r)) '()))))
@@ -83,7 +83,7 @@
 (define join-tests
   (test-suite
    "Join"
-   (test-case "equi-join matches on dept-id"
+   (test-case "matches rows on dept-id for an equi-join"
      (define ed (rel-desc employees))
      (define dd (rel-desc depts))
      (define r (join (lambda (e d)
@@ -92,10 +92,10 @@
                      employees depts))
      ;; Alice+Eng, Bob+Sales, Carol+Eng -> 3 rows. Dan (null) and HR drop out.
      (check-equal? (length (rel-tuples r)) 3))
-   (test-case "join with always-true is cartesian product"
+   (test-case "behaves like cartesian product when the predicate is always true"
      (define r (join (lambda (_ __) #t) employees depts))
      (check-equal? (length (rel-tuples r)) 12))
-   (test-case "join desc concatenates"
+   (test-case "concatenates the input fields in its desc"
      (define r (join (lambda (_ __) #t) employees depts))
      (check-equal? (tuple-desc-fields (rel-desc r))
                    '(id name dept-id dept-id dept-name)))))
@@ -140,7 +140,7 @@
      (check-equal? (length (rel-tuples r)) 1)
      (check-equal? (tuple-ref (car (rel-tuples r)) employees-desc 'name)
                    "Dan"))
-   (test-case "antijoin against empty rel returns all left rows"
+   (test-case "returns all left rows when the right rel is empty"
      (define empty-d (rel depts-desc '()))
      (define r (antijoin (lambda (_ __) #t) employees empty-d))
      (check-equal? (length (rel-tuples r)) 4))))
@@ -166,7 +166,7 @@
 (define intersect-tests
   (test-suite
    "Intersect"
-   (test-case "multiset intersection: min(m,n) of each tuple"
+   (test-case "keeps min(m,n) copies of each tuple (multiset intersection)"
      (define a (rel (tuple-desc '(x))
                     (list (tuple 1) (tuple 1) (tuple 1) (tuple 2))))
      (define b (rel (tuple-desc '(x))
@@ -192,7 +192,7 @@
 (define except-tests
   (test-suite
    "Except"
-   (test-case "multiset difference: max(m-n, 0) of each tuple"
+   (test-case "keeps max(m-n, 0) copies of each tuple (multiset difference)"
      (define a (rel (tuple-desc '(x))
                     (list (tuple 1) (tuple 1) (tuple 1) (tuple 2))))
      (define b (rel (tuple-desc '(x))
@@ -201,7 +201,7 @@
      ;; (1) 3-1=2; (2) 1-0=1.
      (check-equal? (map tuple-values (rel-tuples r))
                    '((1) (1) (2))))
-   (test-case "except with empty right is identity"
+   (test-case "returns the left rel unchanged when the right is empty"
      (define a (rel (tuple-desc '(x)) (list (tuple 1) (tuple 2))))
      (define b (rel (tuple-desc '(x)) '()))
      (check-equal? (rel-tuples (except a b)) (rel-tuples a)))
@@ -214,7 +214,7 @@
 (define outer-join-tests
   (test-suite
    "OuterJoin"
-   (test-case "full outer keeps unmatched on both sides with nulls"
+   (test-case "keeps unmatched rows on both sides, padded with nulls"
      (define ed (rel-desc employees))
      (define dd (rel-desc depts))
      (define pred (lambda (e d)
@@ -226,7 +226,7 @@
      (define rows (map tuple-values (rel-tuples r)))
      (check-not-false (member '(4 "Dan" () () ()) rows))
      (check-not-false (member '(() () () 30 "HR") rows)))
-   (test-case "left outer drops unmatched right"
+   (test-case "drops unmatched right rows for a left outer join"
      (define ed (rel-desc employees))
      (define dd (rel-desc depts))
      (define pred (lambda (e d)
@@ -235,7 +235,7 @@
      (define r (outer-join pred employees depts #:side 'left))
      ;; 3 matches + Dan = 4
      (check-equal? (length (rel-tuples r)) 4))
-   (test-case "right outer drops unmatched left"
+   (test-case "drops unmatched left rows for a right outer join"
      (define ed (rel-desc employees))
      (define dd (rel-desc depts))
      (define pred (lambda (e d)
@@ -244,7 +244,7 @@
      (define r (outer-join pred employees depts #:side 'right))
      ;; 3 matches + HR = 4
      (check-equal? (length (rel-tuples r)) 4))
-   (test-case "no matches: full outer returns left-padded + right-padded"
+   (test-case "returns left-padded and right-padded rows when nothing matches"
      (define a (rel (tuple-desc '(x)) (list (tuple 1) (tuple 2))))
      (define b (rel (tuple-desc '(y)) (list (tuple 9))))
      (define r (outer-join (lambda (_ __) #f) a b #:side 'full))

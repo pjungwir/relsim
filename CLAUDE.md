@@ -79,3 +79,10 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   operator or semantic change, and register it in the file's suite (which
   `tests/all.rkt` already aggregates). Each suite is small enough to read
   top-to-bottom.
+- Write each `test-case` description as a verb-first indicative clause that
+  reads as a sentence with an implicit "it" subject naming the thing under
+  test: "keeps only requested fields", "returns #f for disjoint ranges",
+  "drops a row when every kept attribute has an empty valid-at". Avoid bare
+  noun labels ("union", "row count"), passive phrasings ("values are stored
+  in order"), and restating the operator name ("select preserves
+  duplicates"); the suite name already supplies the subject.

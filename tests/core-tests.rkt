@@ -27,19 +27,19 @@
 (define tuple-tests
   (test-suite
    "Tuple constructor"
-   (test-case "values are stored in order"
+   (test-case "stores values in order"
      (check-equal? (tuple-values (tuple 1 2 3)) '(1 2 3)))
-   (test-case "tuple? recognises tuples"
+   (test-case "recognises tuples and rejects non-tuples"
      (check-true  (tuple? (tuple 1)))
      (check-false (tuple? (list 1 2 3)))
      (check-false (tuple? "not a tuple")))
-   (test-case "empty tuple is allowed"
+   (test-case "allows an empty tuple"
      (check-equal? (tuple-values (tuple)) '()))
-   (test-case "null values stored as '()"
+   (test-case "stores null values as '()"
      (check-equal? (tuple-values (tuple 1 '() 3)) '(1 () 3)))
-   (test-case "tuples with equal values are equal?"
+   (test-case "treats tuples with equal values as equal?"
      (check-equal? (tuple 1 "x" '()) (tuple 1 "x" '())))
-   (test-case "tuple-ref looks up by field name"
+   (test-case "looks up a field value by name"
      (check-equal? (tuple-ref (tuple 1 "Alice" 10) employees-desc 'name)
                    "Alice")
      (check-equal? (tuple-ref (tuple 1 "Alice" 10) employees-desc 'dept-id)
@@ -48,10 +48,10 @@
 (define rel-tests
   (test-suite
    "Rel constructor"
-   (test-case "rel stores its desc and tuples"
+   (test-case "stores its desc and tuples"
      (check-equal? (rel-desc employees) employees-desc)
      (check-equal? (length (rel-tuples employees)) 4))
-   (test-case "rel allows duplicate tuples"
+   (test-case "allows duplicate tuples"
      (define r (rel (tuple-desc '(x))
                     (list (tuple 1) (tuple 1) (tuple 2))))
      (check-equal? (length (rel-tuples r)) 3))))
@@ -74,7 +74,7 @@
                     "| 1  | Alice |\n"
                     "| 22 | NULL  |\n"
                     "+----+-------+\n")))
-   (test-case "empty rel still prints headers"
+   (test-case "prints headers even when the rel is empty"
      (define empty-r (rel (tuple-desc '(a bb)) '()))
      (define out (open-output-string))
      (print-rel empty-r out)

@@ -14,20 +14,20 @@
    (let* ([d (tuple-desc '(id name valid-at))]
           [r (rel d (list (tuple 1 "Alice" '(0 . 10))
                           (tuple 2 "Bob"   '(5 . 20))))])
-     (test-case "rel->tquel drops valid-attr and wraps each field"
+     (test-case "converts a rel to TQuel form, dropping valid-attr and wrapping each field in a tsattr"
        (define sr (rel->tquel r 'valid-at))
        (check-equal? (tuple-desc-fields (rel-desc sr)) '(id name))
        (check-equal? (map tuple-values (rel-tuples sr))
                      (list (list (tsattr 1 '((0 . 10))) (tsattr "Alice" '((0 . 10))))
                            (list (tsattr 2 '((5 . 20))) (tsattr "Bob"   '((5 . 20)))))))
-     (test-case "tquel->rel round-trip on uniform valid-ats"
+     (test-case "round-trips a rel through TQuel form unchanged when valid-ats are uniform"
        (define sr (rel->tquel r 'valid-at))
        (define r* (tquel->rel sr 'valid-at))
        (check-equal? (tuple-desc-fields (rel-desc r*)) '(id name valid-at))
        (check-equal? (map tuple-values (rel-tuples r*))
                      '((1 "Alice" (0 . 10))
                        (2 "Bob"   (5 . 20))))))
-   (test-case "tquel->rel splits at every attribute endpoint; NULLs where an attribute isn't valid"
+   (test-case "converts back to a rel, splitting at every attribute endpoint and NULLing where an attribute isn't valid"
      (define sr (rel (tuple-desc '(a b))
                      (list (tuple (tsattr 'x '((0 . 5) (10 . 15)))
                                   (tsattr 'y '((2 . 12)))))))
@@ -38,7 +38,7 @@
                      (()  y  (5 . 10))
                      (x  y   (10 . 12))
                      (x  ()  (12 . 15)))))
-   (test-case "tquel->rel keeps a tuple even when attribute valid-ats don't overlap"
+   (test-case "converts back to a rel, keeping a tuple even when its attributes' valid-ats don't overlap"
      (define sr (rel (tuple-desc '(a b))
                      (list (tuple (tsattr 'x '((0 . 5)))
                                   (tsattr 'y '((10 . 15)))))))
@@ -54,12 +54,12 @@
                                   (tsattr 'x '((0 . 5))))))]
           [r2 (rel d (list (tuple (tsattr 1 '((10 . 15)))
                                   (tsattr 'x '((10 . 15))))))])
-     (test-case "same val-vector -> per-attribute valid-at union"
+     (test-case "merges rows with identical values by unioning each attribute's valid-at"
        (define u (temporal-union/tquel r1 r2))
        (check-equal? (map tuple-values (rel-tuples u))
                      (list (list (tsattr 1 '((0 . 5) (10 . 15)))
                                  (tsattr 'x '((0 . 5) (10 . 15)))))))
-     (test-case "different val-vectors stay separate"
+     (test-case "keeps rows with differing values as separate rows"
        (define r3 (rel d (list (tuple (tsattr 2 '((0 . 5)))
                                       (tsattr 'y '((0 . 5)))))))
        (define u (temporal-union/tquel r1 r3))
@@ -74,7 +74,7 @@
   (test-suite
    "temporal-except/tquel"
    (let* ([d (tuple-desc '(id name))])
-     (test-case "per-attribute subtraction by val-vector"
+     (test-case "subtracts each attribute's valid-at from the row with matching values"
        (define r1 (rel d (list (tuple (tsattr 1 '((0 . 20)))
                                       (tsattr "Alice" '((0 . 20)))))))
        (define r2 (rel d (list (tuple (tsattr 1 '((5 . 10)))
@@ -83,13 +83,13 @@
        (check-equal? (map tuple-values (rel-tuples diff))
                      (list (list (tsattr 1 '((0 . 5) (10 . 20)))
                                  (tsattr "Alice" '((0 . 5) (10 . 20)))))))
-     (test-case "row is dropped only if every attribute's valid-at becomes empty"
+     (test-case "drops a row only when every attribute's valid-at becomes empty"
        (define r1 (rel d (list (tuple (tsattr 1 '((0 . 10)))
                                       (tsattr "Alice" '((0 . 10)))))))
        (define r2 (rel d (list (tuple (tsattr 1 '((0 . 10)))
                                       (tsattr "Alice" '((0 . 10)))))))
        (check-equal? (rel-tuples (temporal-except/tquel r1 r2)) '()))
-     (test-case "row survives if at least one attribute still has a valid-at"
+     (test-case "keeps a row when at least one attribute still has a valid-at"
        (define r1 (rel d (list (tuple (tsattr 1 '((0 . 10)))
                                       (tsattr "Alice" '((0 . 20)))))))
        (define r2 (rel d (list (tuple (tsattr 1 '((0 . 10)))
@@ -98,7 +98,7 @@
        (check-equal? (map tuple-values (rel-tuples diff))
                      (list (list (tsattr 1 '())
                                  (tsattr "Alice" '((5 . 20)))))))
-     (test-case "non-matching val-vector passes through unchanged"
+     (test-case "passes a row through unchanged when no row has matching values"
        (define r1 (rel d (list (tuple (tsattr 1 '((0 . 20)))
                                       (tsattr "Alice" '((0 . 20)))))))
        (define r2 (rel d (list (tuple (tsattr 2 '((5 . 10)))
@@ -162,7 +162,7 @@
                                  (tsattr "Bob"   '((0 . 10)))))))
      (define out (temporal-project/tquel '(dept) r))
      (check-equal? (length (rel-tuples out)) 2))
-   (test-case "row survives if at least one kept attribute has a valid-at"
+   (test-case "keeps a row when at least one kept attribute has a valid-at"
      (define d (tuple-desc '(id name)))
      (define r (rel d (list (tuple (tsattr 1   '())
                                     (tsattr "Alice" '((0 . 10)))))))
@@ -170,7 +170,7 @@
      (check-equal? (map tuple-values (rel-tuples out))
                    (list (list (tsattr 1 '())
                                (tsattr "Alice" '((0 . 10)))))))
-   (test-case "row is dropped when every kept attribute has empty valid-at"
+   (test-case "drops a row when every kept attribute has an empty valid-at"
      (define d (tuple-desc '(id name)))
      (define r (rel d (list (tuple (tsattr 1   '())
                                     (tsattr "Alice" '((0 . 10)))))))

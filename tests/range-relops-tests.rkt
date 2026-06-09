@@ -32,14 +32,14 @@
        (check-equal? (map tuple-values (rel-tuples r))
                      '((1 "Alice" (0 . 10) 1 "eng" (3 . 7) (3 . 7))
                        (2 "Bob"   (5 . 15) 2 "sales" (0 . 8) (5 . 8)))))
-     (test-case "result desc appends valid-attr as an extra column"
+     (test-case "appends valid-attr to the result desc as an extra column"
        (define r (temporal-join eq-id 'valid-at r1 r2))
        (check-equal? (tuple-desc-fields (rel-desc r))
                      '(id name valid-at id role valid-at valid-at)))
-     (test-case "predicate failure drops rows even if ranges overlap"
+     (test-case "drops rows when the predicate fails, even if ranges overlap"
        (define r (temporal-join (lambda (_ __) #f) 'valid-at r1 r2))
        (check-equal? (rel-tuples r) '()))
-     (test-case "non-overlapping ranges drop rows even if pred holds"
+     (test-case "drops rows when ranges don't overlap, even if the predicate holds"
        (define r (temporal-join (lambda (_ __) #t) 'valid-at
                                 (rel d1 (list (tuple 1 "Alice" '(0 . 5))))
                                 (rel d2 (list (tuple 1 "eng"   '(5 . 9))))))
@@ -66,11 +66,11 @@
        (check-equal? (map tuple-values (rel-tuples r))
                      '((1 "Alice" (0 . 10) "eng" (5 . 25) (5 . 10))
                        (2 "Bob"   (20 . 30) "eng" (5 . 25) (20 . 25)))))
-     (test-case "result desc appends valid-attr as an extra column"
+     (test-case "appends valid-attr to the result desc as an extra column"
        (define r (temporal-cartesian-product 'valid-at r1 r2))
        (check-equal? (tuple-desc-fields (rel-desc r))
                      '(id name valid-at role valid-at valid-at)))
-     (test-case "empty rel on either side gives empty result"
+     (test-case "gives an empty result when either side is empty"
        (define empty-r (rel d1 '()))
        (check-equal? (rel-tuples
                       (temporal-cartesian-product 'valid-at empty-r r2))
@@ -94,16 +94,16 @@
           [r2 (rel d2
                    (list (tuple "eng"  '(5 . 25))
                          (tuple "lead" '(50 . 60))))])
-     (test-case "both input valid-attr columns hold the intersection"
+     (test-case "sets both inputs' valid-attr columns to the intersection"
        (define r (temporal-cartesian-product/overwrite-old 'valid-at r1 r2))
        (check-equal? (map tuple-values (rel-tuples r))
                      '((1 "Alice" (5 . 10) "eng" (5 . 10))
                        (2 "Bob"   (20 . 25) "eng" (20 . 25)))))
-     (test-case "result desc is left ++ right with no appended column"
+     (test-case "produces a result desc of left ++ right with no appended column"
        (define r (temporal-cartesian-product/overwrite-old 'valid-at r1 r2))
        (check-equal? (tuple-desc-fields (rel-desc r))
                      '(id name valid-at role valid-at)))
-     (test-case "non-overlapping pairs are dropped"
+     (test-case "drops non-overlapping pairs"
        (define a (rel d1 (list (tuple 1 "X" '(0 . 5)))))
        (define b (rel d2 (list (tuple "y" '(10 . 20)))))
        (define r (temporal-cartesian-product/overwrite-old 'valid-at a b))
@@ -123,10 +123,10 @@
                     r))
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 10)))))
-     (test-case "desc is unchanged"
+     (test-case "leaves the desc unchanged"
        (define out (temporal-select (lambda (_) #t) r))
        (check-equal? (rel-desc out) d))
-     (test-case "valid-at values are preserved unchanged"
+     (test-case "preserves valid-at values unchanged"
        (define out (temporal-select (lambda (_) #t) r))
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 10))
@@ -144,24 +144,24 @@
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 5))
                        (1 "Alice" (10 . 20)))))
-     (test-case "non-matching key in r2 is ignored"
+     (test-case "ignores a non-matching key in r2"
        (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10)))))
        (define r2 (rel d (list (tuple 2 "Bob" '(0 . 10)))))
        (define out (temporal-except 'valid-at r1 r2))
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 10)))))
-     (test-case "endpoint-only touch leaves range intact"
+     (test-case "leaves the range intact when r2 only touches an endpoint"
        (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10)))))
        (define r2 (rel d (list (tuple 1 "Alice" '(10 . 20)))))
        (define out (temporal-except 'valid-at r1 r2))
        (check-equal? (map tuple-values (rel-tuples out))
                      '((1 "Alice" (0 . 10)))))
-     (test-case "fully-covered range produces zero output rows"
+     (test-case "produces zero output rows when the range is fully covered"
        (define r1 (rel d (list (tuple 1 "Alice" '(5 . 8)))))
        (define r2 (rel d (list (tuple 1 "Alice" '(0 . 20)))))
        (define out (temporal-except 'valid-at r1 r2))
        (check-equal? (rel-tuples out) '()))
-     (test-case "multiple subtractions accumulate"
+     (test-case "accumulates multiple subtractions"
        (define r1 (rel d (list (tuple 1 "Alice" '(0 . 30)))))
        (define r2 (rel d (list (tuple 1 "Alice" '(5 . 10))
                                (tuple 1 "Alice" '(15 . 20)))))
@@ -170,7 +170,7 @@
                      '((1 "Alice" (0 . 5))
                        (1 "Alice" (10 . 15))
                        (1 "Alice" (20 . 30)))))
-     (test-case "empty r2 is identity"
+     (test-case "returns r1 unchanged when r2 is empty"
        (define r1 (rel d (list (tuple 1 "Alice" '(0 . 10))
                                (tuple 2 "Bob"   '(5 . 15)))))
        (define r2 (rel d '()))

@@ -11,15 +11,15 @@
 (define range-overlaps-tests
   (test-suite
    "range-overlaps"
-   (test-case "ranges that share interior points overlap"
+   (test-case "reports overlap when ranges share interior points"
      (check-true  (range-overlaps '(1 . 5) '(3 . 7)))
      (check-true  (range-overlaps '(3 . 7) '(1 . 5)))
      (check-true  (range-overlaps '(1 . 10) '(3 . 5)))   ;; one contains the other
      (check-true  (range-overlaps '(3 . 5) '(1 . 10))))
-   (test-case "ranges that only touch at an endpoint do not overlap"
+   (test-case "reports no overlap when ranges only touch at an endpoint"
      (check-false (range-overlaps '(1 . 3) '(3 . 5)))
      (check-false (range-overlaps '(3 . 5) '(1 . 3))))
-   (test-case "fully disjoint ranges do not overlap"
+   (test-case "reports no overlap for fully disjoint ranges"
      (check-false (range-overlaps '(1 . 2) '(5 . 9)))
      (check-false (range-overlaps '(5 . 9) '(1 . 2))))
    (test-case "works with non-integer comparable values"
@@ -29,18 +29,18 @@
 (define range-intersection-tests
   (test-suite
    "range-intersection"
-   (test-case "partial overlap returns the shared sub-range"
+   (test-case "returns the shared sub-range for a partial overlap"
      (check-equal? (range-intersection '(1 . 5) '(3 . 7)) '(3 . 5))
      (check-equal? (range-intersection '(3 . 7) '(1 . 5)) '(3 . 5)))
-   (test-case "containment returns the inner range"
+   (test-case "returns the inner range when one range contains the other"
      (check-equal? (range-intersection '(1 . 10) '(3 . 5)) '(3 . 5))
      (check-equal? (range-intersection '(3 . 5) '(1 . 10)) '(3 . 5)))
-   (test-case "identical ranges intersect to themselves"
+   (test-case "returns the same range when both inputs are identical"
      (check-equal? (range-intersection '(2 . 8) '(2 . 8)) '(2 . 8)))
-   (test-case "endpoint-touching ranges return #f"
+   (test-case "returns #f for endpoint-touching ranges"
      (check-false (range-intersection '(1 . 3) '(3 . 5)))
      (check-false (range-intersection '(3 . 5) '(1 . 3))))
-   (test-case "fully disjoint ranges return #f"
+   (test-case "returns #f for fully disjoint ranges"
      (check-false (range-intersection '(1 . 2) '(5 . 9)))
      (check-false (range-intersection '(5 . 9) '(1 . 2))))
    (test-case "agrees with range-overlaps on truthiness"
