@@ -283,6 +283,38 @@
        (check-exn exn:fail?
                   (lambda () (division sp (rel (tuple-desc '(color)) '()))))))))
 
+(define small-divide-tests
+  (test-suite
+   "Small Divide"
+   (let* ([cand-desc (tuple-desc '(sno))]
+          [cands (rel cand-desc (map tuple '(s1 s2 s3 s4)))]    ;; s4 ships nothing
+          [parts (lambda ps (rel (tuple-desc '(pno)) (map tuple ps)))]
+          [ships (rel (tuple-desc '(sno pno))
+                      (list (tuple 's1 'p1) (tuple 's1 'p2)
+                            (tuple 's2 'p1)
+                            (tuple 's3 'p1) (tuple 's3 'p2) (tuple 's3 'p3)))])
+     (test-case "keeps candidates related to every divisor row"
+       (define r (small-divide cands (parts 'p1 'p2) ships))
+       (check-equal? (tuple-desc-fields (rel-desc r)) '(sno))
+       (check-equal? (map tuple-values (rel-tuples r)) '((s1) (s3))))
+     (test-case "excludes a candidate missing a required relationship"
+       ;; s2 ships only p1
+       (check-false (member '(s2)
+                            (map tuple-values
+                                 (rel-tuples (small-divide cands (parts 'p1 'p2) ships))))))
+     (test-case "empty divisor returns every candidate, even unrelated ones"
+       ;; unlike Codd division, s4 (no shipments at all) is still a candidate
+       (define r (small-divide cands (rel (tuple-desc '(pno)) '()) ships))
+       (check-equal? (map tuple-values (rel-tuples r)) '((s1) (s2) (s3) (s4))))
+     (test-case "set semantics: duplicate candidates don't duplicate output"
+       (define dup (rel cand-desc (append (rel-tuples cands) (list (tuple 's1)))))
+       (check-equal? (map tuple-values (rel-tuples (small-divide dup (parts 'p1) ships)))
+                     '((s1) (s2) (s3))))
+     (test-case "errors when a candidate or divisor field is absent from the per relation"
+       (check-exn exn:fail?
+                  (lambda () (small-divide cands (parts 'p1)
+                                           (rel (tuple-desc '(sno color)) '()))))))))
+
 (define relops-suite
   (test-suite
    "relops"
@@ -296,7 +328,8 @@
    intersect-tests
    except-tests
    outer-join-tests
-   division-tests))
+   division-tests
+   small-divide-tests))
 
 (module+ main
   (exit (if (zero? (run-tests relops-suite)) 0 1)))

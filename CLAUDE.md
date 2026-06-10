@@ -20,7 +20,7 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   `multirange-union`, `multirange-intersection`, etc.). Requires `ranges.rkt`.
 - `relops.rkt` — ordinary relational operators (`select`, `project`,
   `cartesian-product`, `join`, `semijoin`, `antijoin`, `union`, `intersect`,
-  `except`, `outer-join`, `division`).
+  `except`, `outer-join`, `division`, `small-divide`).
 - `range-relops.rkt` — range-based temporal operators (`range-join`,
   `range-cartesian-product` and variants, `range-select`,
   `range-except`, `range-division`).

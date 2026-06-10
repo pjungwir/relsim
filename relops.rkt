@@ -14,7 +14,8 @@
          intersect
          except
          outer-join
-         division)
+         division
+         small-divide)
 
 ;; Select: keep tuples for which (pred t) is true.
 (define (select pred r)
@@ -195,3 +196,41 @@
                 (hash-has-key? in-r (compose kvs svs))))
             candidates))
   (rel (tuple-desc k-fields) (map make-tuple-from-list kept)))
+
+;; Small Divide (Date & Darwen): candidates DIVIDEBY divisor PER per.
+;;   candidates {X}, divisor {Y}, per {X,Y}  ->  result {X}
+;; Returns each distinct candidate x such that for every distinct divisor row
+;; y, the combined tuple (x, y) appears in `per`. Unlike Codd's `division`,
+;; the candidate set is given explicitly (not derived from the relationship),
+;; so candidates that relate to nothing are still eligible, and dividing by an
+;; empty divisor returns every candidate. Set-based (no duplicate output rows).
+(define (small-divide candidates divisor per)
+  (define x-fields (tuple-desc-fields (rel-desc candidates)))
+  (define y-fields (tuple-desc-fields (rel-desc divisor)))
+  (define c-fields (tuple-desc-fields (rel-desc per)))
+  (for ([f (in-list (append x-fields y-fields))])
+    (unless (member f c-fields)
+      (error 'small-divide "field ~a is missing from the per relation" f)))
+  (for ([f (in-list c-fields)])
+    (unless (or (member f x-fields) (member f y-fields))
+      (error 'small-divide "per-relation field ~a is in neither candidate nor divisor" f)))
+  ;; Membership of `per`, keyed by full value vector.
+  (define in-per (make-hash))
+  (for ([t (in-list (rel-tuples per))]) (hash-set! in-per (tuple-values t) #t))
+  (define y-rows (remove-duplicates (map tuple-values (rel-tuples divisor))))
+  ;; For each per field, where its value comes from when we rebuild a per row.
+  (define src
+    (for/list ([f (in-list c-fields)])
+      (cond
+        [(index-of x-fields f) => (lambda (j) (cons 'x j))]
+        [else (cons 'y (index-of y-fields f))])))
+  (define (compose xvs yvs)
+    (map (lambda (p)
+           (if (eq? (car p) 'x) (list-ref xvs (cdr p)) (list-ref yvs (cdr p))))
+         src))
+  (define kept
+    (filter (lambda (xvs)
+              (for/and ([yvs (in-list y-rows)])
+                (hash-has-key? in-per (compose xvs yvs))))
+            (remove-duplicates (map tuple-values (rel-tuples candidates)))))
+  (rel (rel-desc candidates) (map make-tuple-from-list kept)))

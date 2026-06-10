@@ -31,7 +31,7 @@ See [the identities folder](/identities/README.md) for what I've learned so far.
 - **Rel** - a TupleDesc plus a list of Tuples:
   `(rel desc (list (tuple ...) ...))`.
 
-Operators provided: `select`, `project`, `cartesian-product`, `join`, `range-join`, `range-cartesian-product`, `range-select`, `range-except`, `range-division`, `multirange-join`, `multirange-cartesian-product`, `multirange-select`, `multirange-except`, `multirange-division`, `semijoin`, `antijoin`, `union`, `intersect`, `except`, `outer-join`, `division`.
+Operators provided: `select`, `project`, `cartesian-product`, `join`, `range-join`, `range-cartesian-product`, `range-select`, `range-except`, `range-division`, `multirange-join`, `multirange-cartesian-product`, `multirange-select`, `multirange-except`, `multirange-division`, `semijoin`, `antijoin`, `union`, `intersect`, `except`, `outer-join`, `division`, `small-divide`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
 duplicates are preserved, and counts combine accordingly (sum, min,
@@ -243,8 +243,7 @@ Darwen:
   states the "for all" directly and handles the edge cases cleanly, which is
   why he argues a dedicated `DIVIDE` is largely unnecessary.
 
-Two notes for this project. The Small Divide would be an easy addition: our
-`division` taking an explicit candidate relation plus a per-relation. And the
+Two notes for this project. relsim now provides the Small Divide as `small-divide` (candidates `DIVIDEBY` divisor `PER` the relationship); dividing by an empty divisor returns every candidate, even ones the relationship never mentions. And the
 image-relation-with-`⊇` formulation is exactly the sequenced temporal division
 above: "at each instant the image contains the required set" is what
 `range-division` and `multirange-division` compute.
