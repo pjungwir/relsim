@@ -1,21 +1,26 @@
 # relsim
 
-A small Racket library for building relations and evaluating expressions
-in the style of the relational algebra. SQL-flavored: nulls are allowed
+A REPL/library for playing with relational algebra, written in Racket.
+Includes temporal operators.
+
+This project lets you build relations and evaluate
+relational expressions. It defines all the normal relational operators.
+To make it practical, I made it SQL-flavored: nulls are allowed
 (represented as `'()`) and duplicate tuples are preserved.
 
-The real point of this is to experiment with *temporal* relational operators,
+My personal motivation is to experiment with *temporal* relational operators,
 and see if they obey the same algebraic identities as their traditional analogues.
 This matters for query transformations done by the planner.
-
-According to "TQuel Overview" by Richard Snodgrass in *Temporal Databases: Theory,
-Design, and Implementation* (1993), one identity that is not the same is that
-Cartesian product does not distribute over difference. In other words, this
-identity does not hold:
+For instance, does Cartesian product distribute over difference?:
 
 $$
 Q \mathbin{\hat\times} (R \mathbin{\hat-} S) \equiv (Q \mathbin{\hat\times} R) \mathbin{\hat-} (Q \mathbin{\hat\times} S)
 $$
+
+According to "TQuel Overview" by Richard Snodgrass in *Temporal Databases: Theory,
+Design, and Implementation* (1993), this identity does *not* hold in TQuel.
+What about other temporal models?
+See [the identities folder](/identities/README.md) for what I've learned so far.
 
 Since other joins can all be defined in terms of Cartesian product, I suspect
 many transformations built into databases like Postgres will not be valid.
