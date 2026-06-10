@@ -13,9 +13,9 @@ Design, and Implementation* (1993), one identity that is not the same is that
 Cartesian product does not distribute over difference. In other words, this
 identity does not hold:
 
-```
-Q ⨯̂ (R −̂ S) ≡ (Q ⨯̂ R) −̂ (Q ⨯̂ S)
-```
+$$
+Q \mathbin{\hat\times} (R \mathbin{\hat-} S) \equiv (Q \mathbin{\hat\times} R) \mathbin{\hat-} (Q \mathbin{\hat\times} S)
+$$
 
 Since other joins can all be defined in terms of Cartesian product, I suspect
 many transformations built into databases like Postgres will not be valid.
