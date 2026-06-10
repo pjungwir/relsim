@@ -181,6 +181,21 @@ tuple or several (anything that counts value-equivalent tuples). That is the
 duplicate-elimination / coalescing distinction the temporal-element literature
 cares about, and it is where a real separation would live.
 
+Note that if we "coalesce" (using Snodgrass's meaning), then `φ` becomes
+bijective, and we have an isomorphism. Consider "value-equivalent" tuples:
+tuples whose attributes are all equal, ignoring their valid times. Then for
+ranges, coalesce means combining value-equivalent tuples with adjacent/overlapping
+ranges into one. It is a kind of canonicalization. Multiranges are similar, but
+they let us combine *all* value-equivalent tuples into one multirange (since we
+can handle gaps). In that case, there is no ambiguity mapping from a range-relation
+to a multirange-relation. But this only works for relations with a temporal primary
+key (forbidding equality on the key column(s) with overlaps on the valid time).
+Otherwise we have a bag, not a set, and what does coalesce even mean then? For
+instance what should `{(q1, [1,15)), (q1, [10,20))}` give us? After coalescing,
+do we keep the fact that we saw `[10,15)` twice? And similarly for multiranges.
+But coalescing is expensive and ignored by SQL:2011. It seems unlikely people
+will use it. And how would the Postgres planner know you are doing it?
+
 ## Takeaway
 
 Most classical rules survive temporalization: the selection rules, the set-op
