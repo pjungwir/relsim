@@ -95,25 +95,84 @@ plain `range-cartesian-product` is **not associative**. With
 Q × (R × S)   ...  s1 | (20 . 50) | (10 . 30)     <- last valid-at = Q ∩ R
 ```
 
-The product appends a fresh `valid-at` column holding the pair's intersection,
-but it leaves the inputs' original `valid-at` columns in place, and the *next*
-product looks up the **leftmost** `valid-at` (Q's original). So `(Q × R) × S`
-intersects Q's time with S and forgets R, while `Q × (R × S)` intersects Q with
-R and forgets S. Neither equals the intended `Q ∩ R ∩ S`, and the two
-disagree. The fuzzer finds a mismatch in roughly a third of random trials
-(`probe/equivalences.rkt`).
+The plain product appends that fresh `valid-at` column but leaves the inputs'
+original `valid-at` columns in place. With three columns now named `valid-at`,
+the next product reads the **leftmost** one (Q's original), so `(Q × R) × S`
+intersects Q with S and `Q × (R × S)` intersects Q with R. That is a vivid
+symptom, and the fuzzer catches it in roughly a third of random trials
+(`probe/equivalences.rkt`), but it is **not the root cause**: it is just what
+the duplicated column name happens to do.
 
-Multirange behaves identically (same appended-column issue). TQuel does **not**
-have this problem: its product is plain concatenation with the time living in
-the attributes, so it associates like classical relational algebra.
+The `/rename-old` variant exposes the real cause. It renames each input's
+`valid-at` to `old-valid-at`, so every column is uniquely named and the product
+reads the *correct* running intersection. Both sides then agree on the final
+`valid-at` (`[20,30) = Q ∩ R ∩ S`). The identity *still* fails, because the
+retained `old-valid-at` columns differ: one side kept `Q ∩ R = [10,30)`, the
+other kept `R ∩ S = [20,40)`. The answer is identical; only the leftover
+bookkeeping differs.
+
+So the real cause is that **valid-time is not an attribute but a qualifier of
+the other attributes**: it records *when* a fact holds, not *which* fact it is.
+Tuple equality, and the set-difference operator's "match on every column" rule,
+nonetheless treat the retained input valid-times as part of a row's identity, so
+the same fact carrying different leftover timestamps reads as a different row and
+the algebra breaks. Keeping the times as columns is the problem; the leftmost
+lookup is just one way the plain variant stumbles into it.
+
+Multirange behaves identically. TQuel does **not** have this problem: its
+product is plain concatenation with the time living *inside* each attribute, so
+there is no free-standing valid-time column to compare on, and it associates
+like classical relational algebra.
 
 ### The `/drop-old` fix
 
 `range-cartesian-product/drop-old` collapses each pair to the single
-intersection `qt ∩ rt`, dropping the stray source-time columns. With no
-leftover `valid-at` to misread, **associativity is restored** (0 failures over
-3000 trials for both range and multirange). This is the same fix that restores
-the next identity.
+intersection `qt ∩ rt` and drops the inputs' valid-time columns. With the
+qualifier-columns gone, equality and difference compare only on the genuine
+attributes, and **associativity is restored** (0 failures over 3000 trials for
+both range and multirange). This is the same fix that restores the next
+identity.
+
+I find some ironies here.
+First, the TSQL2 standard was [criticized by Date and Darwen](https://www.dcs.warwick.ac.uk/~hugh/TTM/OnTSQL2.pdf)
+and they have similar criticisms of SQL:2011 in [their book with Lorentzos](https://www.amazon.com/Time-Relational-Theory-Databases-Management/dp/0128006315).
+They don't like how `PERIOD`s are not part of the relational math, but weird table metadata.
+And practically speaking, I agree this is annoying: they compose poorly.
+You can't `SELECT` them, or get them from a view, or pass them to a function, or return them from a function, or use them in aggregates or window functions or to define groups, etc.
+The standard defines a few special-case predicates you can put in `WHERE` clauses with magic syntax.
+But from what I've seen [no RDBMS implements them for application-time](https://illuminatedcomputing.com/posts/2019/08/sql2011-survey/) (understandably, since it's annoying).
+That's why I like using Postgres rangetype columns.
+But treating them like attributes spoils the algebra.
+And that isn't surprising: semantically, they aren't attributes, but qualifiers of the other attributes.
+So temporal operators need to treat them differently.
+
+Note that `PERIOD`s don't improve things though.
+You still have real columns for the start and end times,
+and carrying those forward is just as bad.
+So all their other disadvantages don't buy you anything algebraically.
+
+And to be fair to Date/Darwen/Lorentzos,
+they also treat valid-time as more than a regular attribute.
+Their temporal `U_*` operators are defined in terms of `PACK` and `UNPACK`,
+which effectively drop the input valid-times from their results.
+
+One thing that `PERIOD`s give you is table metadata to identify which column is special.
+SQL:2011 forbids more than one application-time `PERIOD` on a table.
+But I think that restriction is too limiting,
+and a join/union/etc could just let you name the valid-time columns involved.
+After all, you're already typically naming the other columns in your join condition.
+Relsim models that approach: every operator takes `'valid-at` as a parameter
+rather than relying on table metadata.
+
+The second irony is that one significant result in the
+[Dignös/Böhlen/Gamper "Temporal Alignment" paper](https://www.zora.uzh.ch/entities/publication/5c71ee3a-f8f4-4d5d-a9fb-3b85cde08e89)
+is precisely to *keep* the input valid-times (via their "extend" operator).
+Sometimes you want them.
+For instance imagine a database for renting vacation homes, where you give a discount based on the length of your stay. Then when you join reservations to discounts, it's based on the length of the valid-time.
+Or if you run an aggregate query, you have to cut up the input valid-times into smaller slices so that every record in the group aligns.
+If you are aggregating something numeric like a budget, you often want to scale it proportionally to the slice's new valid-time length.
+But really those use-cases only require the input valid-times for the intermediate calculations.
+It still makes sense to drop them from the result.
 
 ## Extra identities we studied (not in the PDF)
 
@@ -126,10 +185,11 @@ The product-over-difference failure is the original motivating example
 (`range-relops.rkt`, `multirange-relops.rkt`, `tquel-relops.rkt`, and
 `probe/ranges.rkt`'s proof sketch). For ranges and multiranges the *plain*
 product fails and `/drop-old` fixes it, for the same reason as associativity:
-leftover valid-at columns mismatch in the outer difference's key. TQuel fails
-for a different reason: its per-attribute difference over-subtracts, cancelling
-an attribute's whole valid-time even when the tuple combination only co-occurs
-over a smaller window.
+the retained input valid-times are compared as if they were attributes (here in
+the outer difference's match key, where R's leftover time and S's leftover time
+differ, so nothing cancels). TQuel fails for a different reason: its
+per-attribute difference over-subtracts, cancelling an attribute's whole
+valid-time even when the tuple combination only co-occurs over a smaller window.
 
 ## A note on Dignös's "select doesn't distribute"
 
@@ -201,8 +261,11 @@ will use it. And how would the Postgres planner know you are doing it?
 Most classical rules survive temporalization: the selection rules, the set-op
 commutativity/associativity, and selection-over-difference all hold for every
 family. What breaks is the **Cartesian product's bookkeeping of valid-time**:
-the plain `range`/`multirange` products are neither associative nor
-distributive over difference, because they retain the inputs' valid-times as
-ordinary columns. Collapsing each result to the single intersection
-(`/drop-old`) repairs both. TQuel keeps the product well-behaved (time lives in
-the attributes) but trades that for a difference operator that over-subtracts.
+the plain `range`/`multirange` products are neither associative nor distributive
+over difference, because they retain the inputs' valid-times as ordinary
+columns, even though a valid-time is a *qualifier* of the other attributes, not
+an identifying attribute. Tuple equality and set-difference then compare on
+those leftover times and see the same fact as different rows. Collapsing each
+result to the single intersection (`/drop-old`) drops the qualifier-columns and
+repairs both. TQuel keeps the product well-behaved (time lives inside the
+attributes) but trades that for a difference operator that over-subtracts.
