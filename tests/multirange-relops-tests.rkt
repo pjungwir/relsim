@@ -197,6 +197,49 @@
                   (lambda ()
                     (multirange-except 'missing (rel d '()) (rel d '()))))))))
 
+(define multirange-division-tests
+  (test-suite
+   "multirange-division"
+   (let ([rd (tuple-desc '(sno pno valid-at))]
+         [sd (tuple-desc '(pno valid-at))])
+     (test-case "key is valid only while paired with every valid divisor value"
+       (define R (rel rd (list (tuple 's1 'p1 '((0 . 10))) (tuple 's1 'p2 '((0 . 5))))))
+       (define S (rel sd (list (tuple 'p1 '((0 . 10))) (tuple 'p2 '((0 . 10))))))
+       (define out (multirange-division 'valid-at R S))
+       (check-equal? (tuple-desc-fields (rel-desc out)) '(sno valid-at))
+       (check-equal? (map tuple-values (rel-tuples out)) '((s1 ((0 . 5))))))
+     (test-case "keeps a gappy result as one multi-interval row"
+       (define R (rel rd (list (tuple 's1 'p1 '((0 . 5))) (tuple 's1 'p1 '((10 . 20))))))
+       (define S (rel sd (list (tuple 'p1 '((0 . 20))))))
+       (check-equal? (map tuple-values (rel-tuples (multirange-division 'valid-at R S)))
+                     '((s1 ((0 . 5) (10 . 20))))))
+     (test-case "multi-interval divisor: result is intersected with its lifespan"
+       ;; p1 required over [0,10) and [20,30); s1 supplies p1 over [0,25)
+       (define R (rel rd (list (tuple 's1 'p1 '((0 . 25))))))
+       (define S (rel sd (list (tuple 'p1 '((0 . 10) (20 . 30))))))
+       (check-equal? (map tuple-values (rel-tuples (multirange-division 'valid-at R S)))
+                     '((s1 ((0 . 10) (20 . 25))))))
+     (test-case "agrees with Zimányi's temporal universal quantification (Case 2)"
+       ;; Esteban Zimányi, "Temporal Aggregates and Temporal Universal
+       ;; Quantification in Standard SQL", SIGMOD Record 35(2), 2006, Section 4,
+       ;; Case 2. Same scenario as the range-division test, but the gappy
+       ;; for-all stays one multi-interval row instead of splitting.
+       (define works (rel rd (list (tuple 's1 'p1 '((1 . 5)))
+                                   (tuple 's1 'p2 '((4 . 7))))))
+       (define controlled (rel sd (list (tuple 'p1 '((1 . 4)))
+                                        (tuple 'p2 '((3 . 7))))))
+       (check-equal? (map tuple-values
+                          (rel-tuples (multirange-division 'valid-at works controlled)))
+                     '((s1 ((1 . 3) (4 . 7))))))
+     (test-case "empty divisor yields no rows"
+       (define R (rel rd (list (tuple 's1 'p1 '((0 . 10))))))
+       (check-equal? (rel-tuples (multirange-division 'valid-at R (rel sd '()))) '()))
+     (test-case "errors when a divisor field is absent from the dividend"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (multirange-division 'valid-at (rel rd '())
+                                         (rel (tuple-desc '(color valid-at)) '()))))))))
+
 (define multirange-relops-suite
   (test-suite
    "multirange-relops"
@@ -205,7 +248,8 @@
    multirange-cartesian-product/overwrite-old-tests
    multirange-cartesian-product/drop-old-tests
    multirange-select-tests
-   multirange-except-tests))
+   multirange-except-tests
+   multirange-division-tests))
 
 (module+ main
   (exit (if (zero? (run-tests multirange-relops-suite)) 0 1)))

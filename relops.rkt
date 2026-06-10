@@ -13,7 +13,8 @@
          union
          intersect
          except
-         outer-join)
+         outer-join
+         division)
 
 ;; Select: keep tuples for which (pred t) is true.
 (define (select pred r)
@@ -148,3 +149,49 @@
                    side)]))
 
   (rel (concat-desc d1 d2) rows))
+
+;; Division: R ÷ S. Every field of S must also be a field of R. The result has
+;; R's remaining fields K = (R-fields not in S), and holds each distinct
+;; K-tuple k such that for every distinct tuple s in S, the combined tuple
+;; (k, s) appears in R. This is the universal-quantification ("for all")
+;; operator: "k paired with all of S". It is set-based (no duplicate output
+;; rows), and dividing by an empty S yields all of π_K(R), since every k
+;; vacuously pairs with every member of the empty set.
+(define (division r s)
+  (define dr (rel-desc r))
+  (define ds (rel-desc s))
+  (define r-fields (tuple-desc-fields dr))
+  (define s-fields (tuple-desc-fields ds))
+  (for ([f (in-list s-fields)])
+    (unless (member f r-fields)
+      (error 'division "divisor field ~a not in dividend" f)))
+  (define k-fields (filter (lambda (f) (not (member f s-fields))) r-fields))
+  ;; Membership of R, keyed by full value vector.
+  (define in-r (make-hash))
+  (for ([t (in-list (rel-tuples r))]) (hash-set! in-r (tuple-values t) #t))
+  ;; Distinct divisor rows (value vectors over s-fields).
+  (define s-rows (remove-duplicates (map tuple-values (rel-tuples s))))
+  ;; For each R field, where its value comes from when we rebuild an R row:
+  ;; (cons 's j) -> the divisor row's j-th value; (cons 'k j) -> the candidate's.
+  (define src
+    (let loop ([fs r-fields] [ki 0] [acc '()])
+      (cond
+        [(null? fs) (reverse acc)]
+        [(member (car fs) s-fields)
+         (loop (cdr fs) ki (cons (cons 's (index-of s-fields (car fs))) acc))]
+        [else (loop (cdr fs) (add1 ki) (cons (cons 'k ki) acc))])))
+  (define (compose kvs svs)
+    (map (lambda (p)
+           (if (eq? (car p) 's) (list-ref svs (cdr p)) (list-ref kvs (cdr p))))
+         src))
+  ;; Candidate K-tuples: distinct projection of R onto K.
+  (define candidates
+    (remove-duplicates
+     (for/list ([t (in-list (rel-tuples r))])
+       (map (lambda (f) (tuple-ref t dr f)) k-fields))))
+  (define kept
+    (filter (lambda (kvs)
+              (for/and ([svs (in-list s-rows)])
+                (hash-has-key? in-r (compose kvs svs))))
+            candidates))
+  (rel (tuple-desc k-fields) (map make-tuple-from-list kept)))

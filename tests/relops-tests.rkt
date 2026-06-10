@@ -252,6 +252,37 @@
      (check-equal? (map tuple-values (rel-tuples r))
                    '((1 ()) (2 ()) (() 9))))))
 
+(define division-tests
+  (test-suite
+   "Division"
+   (let* ([sp-desc (tuple-desc '(sno pno))]
+          [sp (rel sp-desc
+                   (list (tuple 's1 'p1) (tuple 's1 'p2)
+                         (tuple 's2 'p1)
+                         (tuple 's3 'p1) (tuple 's3 'p2) (tuple 's3 'p3)))]
+          [parts (lambda ps (rel (tuple-desc '(pno)) (map tuple ps)))])
+     (test-case "returns keys paired with every divisor row"
+       (define r (division sp (parts 'p1 'p2)))
+       (check-equal? (tuple-desc-fields (rel-desc r)) '(sno))
+       (check-equal? (map tuple-values (rel-tuples r)) '((s1) (s3))))
+     (test-case "excludes a key missing a required divisor row"
+       ;; s2 supplies only p1, not p2
+       (define r (division sp (parts 'p1 'p2)))
+       (check-false (member '(s2) (map tuple-values (rel-tuples r)))))
+     (test-case "single-row divisor keeps every key paired with it"
+       (define r (division sp (parts 'p1)))
+       (check-equal? (map tuple-values (rel-tuples r)) '((s1) (s2) (s3))))
+     (test-case "set semantics: duplicate dividend rows don't duplicate output"
+       (define dup (rel sp-desc (append (rel-tuples sp) (list (tuple 's1 'p1)))))
+       (check-equal? (map tuple-values (rel-tuples (division dup (parts 'p1 'p2))))
+                     '((s1) (s3))))
+     (test-case "empty divisor yields all distinct keys"
+       (define r (division sp (rel (tuple-desc '(pno)) '())))
+       (check-equal? (map tuple-values (rel-tuples r)) '((s1) (s2) (s3))))
+     (test-case "errors when a divisor field is absent from the dividend"
+       (check-exn exn:fail?
+                  (lambda () (division sp (rel (tuple-desc '(color)) '()))))))))
+
 (define relops-suite
   (test-suite
    "relops"
@@ -264,7 +295,8 @@
    union-tests
    intersect-tests
    except-tests
-   outer-join-tests))
+   outer-join-tests
+   division-tests))
 
 (module+ main
   (exit (if (zero? (run-tests relops-suite)) 0 1)))

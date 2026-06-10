@@ -31,11 +31,7 @@ See [the identities folder](/identities/README.md) for what I've learned so far.
 - **Rel** - a TupleDesc plus a list of Tuples:
   `(rel desc (list (tuple ...) ...))`.
 
-Operators provided: `select`, `project`, `cartesian-product`, `join`,
-`range-join`, `range-cartesian-product`, `range-select`,
-`range-except`, `multirange-join`, `multirange-cartesian-product`,
-`multirange-select`, `multirange-except`, `semijoin`, `antijoin`, `union`,
-`intersect`, `except`, `outer-join`.
+Operators provided: `select`, `project`, `cartesian-product`, `join`, `range-join`, `range-cartesian-product`, `range-select`, `range-except`, `range-division`, `multirange-join`, `multirange-cartesian-product`, `multirange-select`, `multirange-except`, `multirange-division`, `semijoin`, `antijoin`, `union`, `intersect`, `except`, `outer-join`, `division`.
 
 `union`, `intersect`, and `except` use multiset (SQL `... ALL`) semantics:
 duplicates are preserved, and counts combine accordingly (sum, min,
@@ -146,3 +142,109 @@ category (e.g. `racket tests/relops-tests.rkt`) or the whole folder via raco:
 ```
 $ raco test tests/
 ```
+
+## Notes
+
+### Why doesn't anyone talk about relational division?
+
+As long as we're thinking about relational algebra, I've often wondered why the
+division operator gets so little attention. Claude said:
+
+A few reasons converge:
+
+- **It's derived, not primitive.** Codd's algebra is complete with six
+  primitives (σ, π, ×, ∪, −, rename); division is expressible in terms of
+  them:
+
+$$
+R \div S = \pi_K(R) - \pi_K\big((\pi_K(R) \times S) - R\big)
+$$
+
+  (K is R's columns minus S's). So it carries no theoretical weight: it's a
+  convenience for one query shape, and textbooks file it under "derived
+  operations" next to intersection.
+- **No SQL keyword.** Division answers universal-quantification queries
+  ("suppliers who supply *every* part"). SQL never got a `DIVIDE`, so people
+  write those as double-`NOT EXISTS`, or `GROUP BY ... HAVING COUNT(...) =
+  (SELECT COUNT(*) ...)`, and never reach for "division" as a concept.
+- **The "for all" shape is rarer.** Existence queries (joins, semijoins)
+  dominate real workloads; genuine "for all of this set" questions are
+  uncommon.
+- **It's finicky.** The empty-divisor case is notoriously counterintuitive:
+  `R ÷ {}` returns *all* of `π_K(R)`, because every key vacuously pairs with
+  every member of the empty set.
+
+But "no one" is too strong, and the exception is the relational-theory crowd
+this project keeps citing: Date and Darwen discuss it at length, mostly to
+point out that Codd's definition is deficient and to propose replacements
+(Todd's division, their "Small Divide" / "Great Divide").
+
+So relsim now includes `division`, plus temporal `range-division` and
+`multirange-division`. (Snodgrass doesn't give a TQuel version, so neither do
+we.) The temporal versions use sequenced semantics: a key is valid at an
+instant exactly when, for every divisor value valid then, the combined tuple
+is in the dividend then. As you'd expect for a "for all, over time" operator,
+the result valid-time is bounded to the divisor's lifespan, so the temporal
+empty-divisor case yields nothing instead of everything.
+
+And (speaking myself here), just a few weeks ago I happened to read
+["Temporal Aggregates and Temporal Universal Quantification in Standard SQL" by Esteban Zimányi](https://sigmodrecord.org/publications/sigmodRecord/0606/p16-article-zimanyi.pdf).
+So that is actually about temporal division! Claude again:
+
+His query is "employees who work on *all* projects controlled by their
+department," realized in standard SQL with the double-`NOT EXISTS` idiom. His
+recipe is three steps: find the periods over which the inputs are constant,
+compute the universal quantification per period, then coalesce. Our
+`range-division` / `multirange-division` do all three internally with multirange
+arithmetic, in one operator.
+
+His examples are schematic timeline diagrams (a ✓/✗ result row over relative
+periods), split into four cases by which of `WorksOn`, `Affiliation`, and
+`Controls` are temporal. The general case, with `Controls` and `WorksOn` both
+temporal, is his Case 2, and it maps exactly onto ours: a worker qualifies
+precisely while it works on every project its department *currently* controls.
+That is the regression test in `tests/range-relops-tests.rkt` (and its
+multirange twin). We even agree on his subtle Case 4 point ("the end of a
+`WorksOn` row induces no result period, since then the project is not
+controlled"): our `⋃_s (S_s − R_{k,s})` only counts a missing project against a
+worker *while that project is required*.
+
+The differences are about packaging. His is plain SQL: a stack of views plus
+`NOT EXISTS`, which he himself flags as "extremely inefficient"; ours is a
+single operator. And he threads `Affiliation` and `Controls` together to derive
+each employee's required-project set, whereas our operator takes the
+already-formed temporal divisor `S`. So reproducing his cases is a matter of how
+you build `S`'s valid-times: a non-temporal divisor gets forever-periods, and a
+temporal affiliation is folded into the divisor.
+
+### Alternatives to division
+
+Codd's `DIVIDE` is the operator everyone wants to replace, and relsim's
+`division` is that original. The lineage of replacements is mostly Date and
+Darwen:
+
+- **Codd's division** is deficient: the empty-divisor anomaly (`a ÷ {}` is
+  *everything*), awkward heading arithmetic (the result heading is the
+  dividend's minus the divisor's), and it conflates "who are the candidates"
+  with "what is the relationship."
+- **Todd's division** generalizes it so the relationship relation is given
+  explicitly rather than implied.
+- **The Small Divide**, written `A DIVIDEBY B PER C`: `A` is the candidate set
+  `{X}`, `B` the required set `{Y}`, `C` the relationship `{X,Y}`, and the
+  result is `{ x ∈ A : ∀ y ∈ B, ⟨x,y⟩ ∈ C }`. Separating the candidates `A`
+  from the relationship `C` removes the heading subtraction, and the empty-`B`
+  case gives a well-defined "all of `A`".
+- **The Great Divide** is a more symmetric form for a double universal
+  quantification (its exact signature is worth checking in the book).
+- **Date's actual recommendation** is to skip a divide operator entirely and
+  use *image relations* with relational comparison. The image relation of a
+  tuple is the set of values related to it, so "supplies every part" is just
+  `image ⊇ P`; in Tutorial D, roughly `S WHERE (!!SP){PNO} ⊇ P{PNO}`. This
+  states the "for all" directly and handles the edge cases cleanly, which is
+  why he argues a dedicated `DIVIDE` is largely unnecessary.
+
+Two notes for this project. The Small Divide would be an easy addition: our
+`division` taking an explicit candidate relation plus a per-relation. And the
+image-relation-with-`⊇` formulation is exactly the sequenced temporal division
+above: "at each instant the image contains the required set" is what
+`range-division` and `multirange-division` compute.

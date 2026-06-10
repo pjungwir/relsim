@@ -6,6 +6,7 @@
 
 (require "core.rkt"
          "ranges.rkt"
+         "multiranges.rkt"
          "relops.rkt")
 
 (provide range-join
@@ -15,7 +16,8 @@
          range-cartesian-product/drop-old
          range-cartesian-product/rename-old
          range-select
-         range-except)
+         range-except
+         range-division)
 
 ;; Range join: like join, but additionally requires the named valid-time
 ;; range attribute (a (s . e) pair) to overlap on both sides. The result desc
@@ -147,3 +149,60 @@
                (make-tuple-from-list
                 (append (take vs i) (cons s (drop vs (add1 i)))))))))
   (rel d rows))
+
+;; Range division: the temporal analogue of `division`, computed snapshot by
+;; snapshot (sequenced semantics). For a candidate key k, k is valid at an
+;; instant t exactly when, for every divisor value s that is valid at t, the
+;; combined tuple (k, s) is valid at t in R. The result valid-time is bounded
+;; to the divisor's lifespan (the union of the divisor values' valid-times),
+;; so an empty divisor yields no rows (unlike non-temporal `division`).
+;;
+;; The surviving valid-time for k is  active − ⋃_s (S_s − R_{k,s}), where
+;; S_s is divisor value s's valid-time, R_{k,s} is (k,s)'s valid-time in R,
+;; and active = ⋃_s S_s. The set can be multi-interval, so like `range-except`
+;; this emits one row per gapless piece.
+(define (range-division valid-attr r s)
+  (define dr (rel-desc r))
+  (define ds (rel-desc s))
+  (define r-fields (tuple-desc-fields dr))
+  (define s-fields (tuple-desc-fields ds))
+  (define ir (field-index dr valid-attr))
+  (define is (field-index ds valid-attr))
+  (define s-attrs (remove valid-attr s-fields))
+  (for ([f (in-list s-attrs)])
+    (unless (member f r-fields)
+      (error 'range-division "divisor field ~a not in dividend" f)))
+  (define k-fields (filter (lambda (f) (not (member f s-attrs)))
+                           (remove valid-attr r-fields)))
+  (define (pick t fields targets)
+    (define vs (tuple-values t))
+    (map (lambda (f) (list-ref vs (index-of fields f))) targets))
+  ;; divisor value -> its valid-time (a range lifted to a singleton multirange,
+  ;; unioned across rows)
+  (define Ti (make-hash))
+  (for ([t (in-list (rel-tuples s))])
+    (hash-update! Ti (pick t s-fields s-attrs)
+                  (lambda (acc) (multirange-union acc (list (list-ref (tuple-values t) is))))
+                  '()))
+  (define dvals (hash-keys Ti))
+  (define active
+    (for/fold ([a '()]) ([sv (in-list dvals)]) (multirange-union a (hash-ref Ti sv))))
+  ;; (k . s) -> (k,s)'s valid-time in R
+  (define Rks (make-hash))
+  (for ([t (in-list (rel-tuples r))])
+    (hash-update! Rks (cons (pick t r-fields k-fields) (pick t r-fields s-attrs))
+                  (lambda (acc) (multirange-union acc (list (list-ref (tuple-values t) ir))))
+                  '()))
+  (define candidates
+    (remove-duplicates (for/list ([t (in-list (rel-tuples r))]) (pick t r-fields k-fields))))
+  (define rows
+    (apply append
+           (for/list ([kv (in-list candidates)])
+             (define bad
+               (for/fold ([b '()]) ([sv (in-list dvals)])
+                 (multirange-union
+                  b (multirange-subtract (hash-ref Ti sv) (hash-ref Rks (cons kv sv) '())))))
+             (define result-time (multirange-subtract active bad))
+             (for/list ([piece (in-list result-time)])
+               (make-tuple-from-list (append kv (list piece)))))))
+  (rel (tuple-desc (append k-fields (list valid-attr))) rows))

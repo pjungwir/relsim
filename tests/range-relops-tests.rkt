@@ -188,6 +188,53 @@
                   (lambda ()
                     (range-except 'missing (rel d '()) (rel d '()))))))))
 
+(define range-division-tests
+  (test-suite
+   "range-division"
+   (let ([rd (tuple-desc '(sno pno valid-at))]
+         [sd (tuple-desc '(pno valid-at))])
+     (test-case "key is valid only while paired with every valid divisor value"
+       ;; s1 supplies p1 over [0,10) but p2 only over [0,5); both required [0,10)
+       (define R (rel rd (list (tuple 's1 'p1 '(0 . 10)) (tuple 's1 'p2 '(0 . 5)))))
+       (define S (rel sd (list (tuple 'p1 '(0 . 10)) (tuple 'p2 '(0 . 10)))))
+       (define out (range-division 'valid-at R S))
+       (check-equal? (tuple-desc-fields (rel-desc out)) '(sno valid-at))
+       (check-equal? (map tuple-values (rel-tuples out)) '((s1 (0 . 5)))))
+     (test-case "splits a gappy result into one row per piece"
+       (define R (rel rd (list (tuple 's1 'p1 '(0 . 5)) (tuple 's1 'p1 '(10 . 20)))))
+       (define S (rel sd (list (tuple 'p1 '(0 . 20)))))
+       (check-equal? (map tuple-values (rel-tuples (range-division 'valid-at R S)))
+                     '((s1 (0 . 5)) (s1 (10 . 20)))))
+     (test-case "two keys, each valid over its own qualifying window"
+       (define R (rel rd (list (tuple 's1 'p1 '(0 . 10)) (tuple 's1 'p2 '(0 . 10))
+                               (tuple 's2 'p1 '(0 . 10)) (tuple 's2 'p2 '(0 . 4)))))
+       (define S (rel sd (list (tuple 'p1 '(0 . 10)) (tuple 'p2 '(0 . 10)))))
+       (check-equal? (map tuple-values (rel-tuples (range-division 'valid-at R S)))
+                     '((s1 (0 . 10)) (s2 (0 . 4)))))
+     (test-case "agrees with Zimányi's temporal universal quantification (Case 2)"
+       ;; Esteban Zimányi, "Temporal Aggregates and Temporal Universal
+       ;; Quantification in Standard SQL", SIGMOD Record 35(2), 2006, Section 4,
+       ;; Case 2 (Controls and WorksOn temporal). A worker qualifies exactly
+       ;; while it works on every project its department currently controls.
+       ;; Here the department controls p1 over [1,4) and p2 over [3,7); the
+       ;; worker works p1 over [1,5) and p2 over [4,7). It loses the for-all on
+       ;; [3,4), when p2 becomes required but is not yet worked.
+       (define works (rel rd (list (tuple 's1 'p1 '(1 . 5))
+                                   (tuple 's1 'p2 '(4 . 7)))))
+       (define controlled (rel sd (list (tuple 'p1 '(1 . 4))
+                                        (tuple 'p2 '(3 . 7)))))
+       (check-equal? (map tuple-values
+                          (rel-tuples (range-division 'valid-at works controlled)))
+                     '((s1 (1 . 3)) (s1 (4 . 7)))))
+     (test-case "empty divisor yields no rows"
+       (define R (rel rd (list (tuple 's1 'p1 '(0 . 10)))))
+       (check-equal? (rel-tuples (range-division 'valid-at R (rel sd '()))) '()))
+     (test-case "errors when a divisor field is absent from the dividend"
+       (check-exn exn:fail?
+                  (lambda ()
+                    (range-division 'valid-at (rel rd '())
+                                    (rel (tuple-desc '(color valid-at)) '()))))))))
+
 (define range-relops-suite
   (test-suite
    "range-relops"
@@ -195,7 +242,8 @@
    range-cartesian-product-tests
    range-cartesian-product/overwrite-old-tests
    range-select-tests
-   range-except-tests))
+   range-except-tests
+   range-division-tests))
 
 (module+ main
   (exit (if (zero? (run-tests range-relops-suite)) 0 1)))

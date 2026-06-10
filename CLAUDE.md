@@ -20,13 +20,13 @@ re-provides everything, so users just `(require "relsim.rkt")`.
   `multirange-union`, `multirange-intersection`, etc.). Requires `ranges.rkt`.
 - `relops.rkt` — ordinary relational operators (`select`, `project`,
   `cartesian-product`, `join`, `semijoin`, `antijoin`, `union`, `intersect`,
-  `except`, `outer-join`).
+  `except`, `outer-join`, `division`).
 - `range-relops.rkt` — range-based temporal operators (`range-join`,
   `range-cartesian-product` and variants, `range-select`,
-  `range-except`).
+  `range-except`, `range-division`).
 - `multirange-relops.rkt` — multirange-based temporal operators
   (`multirange-join`, `multirange-cartesian-product` and variants,
-  `multirange-select`, `multirange-except`); mirrors `range-relops.rkt` but
+  `multirange-select`, `multirange-except`, `multirange-division`); mirrors `range-relops.rkt` but
   the valid-attr is a multirange. Requires `multiranges.rkt`.
 - `tquel-relops.rkt` — TQuel operators, where each *attribute* carries its
   own valid-time multirange (`tsattr`, `rel->tquel`, `tquel->rel`,
